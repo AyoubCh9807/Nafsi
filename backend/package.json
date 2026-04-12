@@ -1,0 +1,23 @@
+{
+  "name": "backend",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "deploy": "void deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "void": "latest",
+    "drizzle-kit": "^0.31.0",
+    "wrangler": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.43.0",
+    "hono": "^4.0.0"
+  }
+}

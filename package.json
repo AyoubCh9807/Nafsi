@@ -1,0 +1,16 @@
+{
+  "name": "nafsi",
+  "private": true,
+  "version": "0.0.1",
+  "scripts": {
+    "mobile": "pnpm --filter mobile start",
+    "mobile:android": "pnpm --filter mobile android",
+    "mobile:ios": "pnpm --filter mobile ios",
+    "mobile:web": "pnpm --filter mobile web",
+    "backend": "pnpm --filter backend dev",
+    "deploy": "pnpm --filter backend deploy"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  }
+}
