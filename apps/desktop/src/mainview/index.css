@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Manrope", "Inter", "Noto Sans Arabic", sans-serif;
+  --font-body: "Inter", "Noto Sans Arabic", sans-serif;
+  --font-arabic: "Noto Sans Arabic", sans-serif;
+
+  --color-void: #07070A;
+  --color-surface-low: #12121A;
+  --color-surface-high: #1A1A26;
+  --color-surface-highest: #232332;
+
+  --color-pulse-cyan: #00F5D4;
+  --color-pulse-purple: #9B5DE5;
+  --color-pulse-pink: #F15BB5;
+  --color-pulse-yellow: #FEE440;
+  --color-pulse-blue: #00BBF9;
+
+  --animate-shimmer: shimmer 2s infinite linear;
+  --animate-aurora: aurora 60s infinite linear;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes aurora {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+:root {
+  --background: #07070A;
+  /* Default is dark for Pulse aesthetic */
+  --surface: #12121A;
+  --on-surface: #E0E0E6;
+  --on-surface-low: #94A3B8;
+  /* slate-400 */
+}
+
+/* Light mode support if needed in the future, but synced with system */
+/* For now, we force the Pulse dark aesthetic but make it variable-based */
+body.light {
+  --background: #F8FAFC;
+  --surface: #FFFFFF;
+  --on-surface: #0F172A;
+  --on-surface-low: #64748B;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--on-surface);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+}
+
+/* Glass Panels - Standardized */
+.glass-panel {
+  background: rgba(18, 18, 28, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+.glass-panel-light {
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Neon Glows */
+.neon-glow-cyan {
+  text-shadow: 0 0 12px rgba(0, 245, 212, 0.4);
+}
+
+.neon-glow-purple {
+  text-shadow: 0 0 12px rgba(155, 93, 229, 0.4);
+}
+
+/* Layout Utilities */
+.screen-container {
+  height: 100%;
+  padding: 2.5rem;
+  /* 40px */
+  padding-top: 5rem;
+  /* 80px - standardized for headers */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Aurora Mesh Background */
+.aurora-mesh {
+  background: radial-gradient(circle at 50% 50%, var(--surface) 0%, var(--background) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.aurora-mesh::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(0, 245, 212, 0.03) 0%, transparent 40%),
+    radial-gradient(circle at 70% 20%, rgba(155, 93, 229, 0.03) 0%, transparent 40%),
+    radial-gradient(circle at 50% 80%, rgba(241, 91, 181, 0.03) 0%, transparent 40%);
+  animation: aurora 60s infinite linear;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-pulse-cyan);
+}
+
+/* Skeleton Shimmer */
+.shimmer {
+  background: linear-gradient(90deg, var(--surface) 25%, var(--color-surface-high) 50%, var(--surface) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Fine-tuned Transitions */
+.transition-standard {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.active-scale:active {
+  transform: scale(0.97);
+}
+
+/* Shadows */
+.shadow-nav {
+  box-shadow: 0 -10px 50px -15px rgba(0, 0, 0, 0.8);
+}
+
+/* Improved Focus States */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-pulse-cyan);
+  outline-offset: 4px;
+}
