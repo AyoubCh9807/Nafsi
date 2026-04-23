@@ -3,12 +3,13 @@
   "private": true,
   "version": "0.0.1",
   "scripts": {
-    "mobile": "pnpm --filter mobile start",
-    "mobile:android": "pnpm --filter mobile android",
-    "mobile:ios": "pnpm --filter mobile ios",
-    "mobile:web": "pnpm --filter mobile web",
-    "backend": "pnpm --filter backend dev",
-    "deploy": "pnpm --filter backend deploy"
+    "dev": "turbo dev",
+    "deploy": "bun --filter backend deploy",
+    "mobile": "bun --filter mobile start",
+    "mobile:android": "bun --filter mobile android",
+    "mobile:ios": "bun --filter mobile ios",
+    "mobile:web": "bun --filter mobile web",
+    "backend": "bun --filter backend dev"
   },
   "devDependencies": {
     "turbo": "^2.0.0"

@@ -137,23 +137,27 @@ function InsightsMain() {
                         <Share2 size={16} className="text-slate-500" />
                         <h3 className="text-xs font-display font-black uppercase tracking-widest text-slate-500">Collective Sanctuary Gravity</h3>
                     </div>
-                    <div className="glass-panel p-6 h-[180px]">
+                    <div className="glass-panel p-6 h-[200px] relative">
+                        {/* Abstract background for bar chart */}
+                        <div className="absolute inset-0 opacity-10 pointer-events-none">
+                            <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-pulse-purple to-transparent" />
+                        </div>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={collectiveData}>
                                 <Bar dataKey="active" radius={[4, 4, 0, 0]}>
                                     {collectiveData.map((_, index) => (
-                                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#9B5DE5" : "#F15BB5"} fillOpacity={0.6} />
+                                        <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "#9B5DE5" : "#F15BB5"} fillOpacity={0.8} />
                                     ))}
                                 </Bar>
                                 <XAxis
                                     dataKey="name"
                                     axisLine={false}
                                     tickLine={false}
-                                    tick={{ fill: "#475569", fontSize: 8, fontWeight: "bold" }}
+                                    tick={{ fill: "#475569", fontSize: 10, fontWeight: "bold" }}
                                 />
                                 <Tooltip
                                     cursor={{ fill: "rgba(255,255,255,0.02)" }}
-                                    contentStyle={{ backgroundColor: "#0F172A", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px" }}
+                                    contentStyle={{ backgroundColor: "#0F172A", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px" }}
                                 />
                             </BarChart>
                         </ResponsiveContainer>
@@ -194,40 +198,53 @@ function AIInsights() {
                     <p className="text-slate-500 max-w-xs text-sm font-bold uppercase tracking-widest">Gravity Analysis of Thought Loops</p>
                 </section>
 
-                <div className="glass-panel p-8 h-[300px] flex items-center justify-center">
+                <div className="glass-panel p-8 h-[350px] flex flex-col items-center justify-center relative">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Pie
                                 data={distortionData}
                                 cx="50%"
                                 cy="50%"
-                                innerRadius={60}
-                                outerRadius={80}
-                                paddingAngle={8}
+                                innerRadius={70}
+                                outerRadius={100}
+                                paddingAngle={10}
                                 dataKey="value"
                                 stroke="none"
+                                animationBegin={0}
+                                animationDuration={1500}
                             >
                                 {distortionData.map((d, index) => (
-                                    <Cell key={`cell-${index}`} fill={d.color} fillOpacity={0.8} />
+                                    <Cell key={`cell-${index}`} fill={d.color} />
                                 ))}
                             </Pie>
                             <Tooltip
-                                contentStyle={{ backgroundColor: "#0F172A", border: "none", borderRadius: "8px" }}
-                                itemStyle={{ fontWeight: "bold" }}
+                                contentStyle={{ backgroundColor: "#0F172A", border: "none", borderRadius: "12px", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
+                                itemStyle={{ fontWeight: "black", textTransform: "uppercase", fontSize: "10px" }}
                             />
                         </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute space-y-2 left-8 bottom-8">
-                        {distortionData.map((d) => (
-                            <div key={d.name} className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
-                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">{d.name}</span>
-                            </div>
-                        ))}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="text-center">
+                            <span className="block text-[10px] font-black text-slate-500 tracking-widest uppercase">Gravity</span>
+                            <span className="text-3xl font-display font-black text-white">4.2</span>
+                        </div>
                     </div>
                 </div>
 
-                <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4 pb-12">
+                    {distortionData.map((d) => (
+                        <div key={d.name} className="glass-panel p-4 flex flex-col gap-2 border-white/5">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
+                                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">{d.name}</span>
+                            </div>
+                            <div className="text-xl font-display font-black text-white">{d.value}%</div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="space-y-6 pb-24">
+                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-700 px-1">Detected Divergence Points</h3>
                     <InsightPoint title="Cortisol Loop" desc="We detected a recurring peak at 11:30 AM. This aligns with your work schedule. Your heart rate variability dropped by 18%." />
                     <InsightPoint title="Growth Gradient" desc="Despite stress peaks, your emotional regulation exercises are 24% more effective than last month." />
                     <InsightPoint title="Recommended Shift" desc="Redirect focus to Cognitive Distortions during morning peaks to achieve 90% stability." />

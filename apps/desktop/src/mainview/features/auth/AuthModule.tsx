@@ -111,17 +111,32 @@ function LoginScreen() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-               <button className="flex items-center justify-center gap-2 py-5 glass-panel border-white/5 hover:bg-white/5 transition-all active:scale-[0.95]">
+               <button
+                  onClick={() => authClient.signIn.social({ provider: "google" })}
+                  className="flex items-center justify-center gap-2 py-5 glass-panel border-white/5 hover:bg-white/5 transition-all active:scale-[0.95]"
+               >
                   <GoogleIcon size={20} />
                   <span className="text-[11px] font-black uppercase tracking-widest">Google</span>
                </button>
-               <button className="flex items-center justify-center gap-2 py-5 glass-panel border-white/5 hover:bg-white/5 transition-all active:scale-[0.95]">
+               <button
+                  onClick={() => authClient.signIn.social({ provider: "apple" })}
+                  className="flex items-center justify-center gap-2 py-5 glass-panel border-white/5 hover:bg-white/5 transition-all active:scale-[0.95]"
+               >
                   <AppleIcon size={20} />
                   <span className="text-[11px] font-black uppercase tracking-widest">Apple</span>
                </button>
             </div>
 
-            <button className="w-full py-5 glass-panel border-white/5 flex items-center justify-center gap-3 hover:bg-white/5 transition-all active:scale-[0.95]">
+            <button
+               onClick={async () => {
+                  const email = (document.querySelector('input[type="email"]') as HTMLInputElement).value;
+                  if (email) {
+                     await authClient.signIn.magicLink({ email });
+                     alert("Magic link transmitted to your neural endpoint.");
+                  }
+               }}
+               className="w-full py-5 glass-panel border-white/5 flex items-center justify-center gap-3 hover:bg-white/5 transition-all active:scale-[0.95]"
+            >
                <Mail size={20} className="text-pulse-cyan/60" />
                <span className="text-[11px] font-black uppercase tracking-widest">Email Magic Link / OTP</span>
             </button>

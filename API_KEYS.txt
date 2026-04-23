@@ -1,0 +1,20 @@
+xOZcQZr1z4uwnYaTUtf01WOWudVsOizW
+/*
+Category	Missing / To-Do	Impact
+Backend	Create backend/src/index.ts (Missing entry point)	Critical: Backend won't run.
+Infra	Provision Cloudflare D1 and update database_id in 
+
+wrangler.toml
+Critical: No database connection.
+Security	Remove 
+
+API_KEYS.txt
+ and move keys to secure environment variables	Critical: Security risk.
+Desktop	Update 
+
+electrobun.config.ts
+ with real app name and identifier	High: Branding & App ID mismatch.
+Compliance	Add Privacy Policy and Terms of Service (required for health/well-being apps)	High: Legal requirement.
+Operations	Implement error monitoring (e.g., Sentry) and analytics	Medium: Visibility on crashes.
+Build	Configure code signing and packaging for macOS/Windows/Linux
+*/

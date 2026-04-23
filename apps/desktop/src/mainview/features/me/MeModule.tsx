@@ -29,18 +29,18 @@ export function MeModule({ state, setState }: MeProps) {
         <Switch>
             <Route path="/me"><MeMain state={state} /></Route>
             <Route path="/vault"><MeMain state={state} /></Route>
-            <Route path="/me/security"><SettingsDetail title="Security Protocols" onBack={() => window.history.back()} /></Route>
-            <Route path="/vault/security"><SettingsDetail title="Security Protocols" onBack={() => window.history.back()} /></Route>
-            <Route path="/me/region"><SettingsDetail title="Region & Language" onBack={() => window.history.back()} /></Route>
-            <Route path="/vault/region"><SettingsDetail title="Region & Language" onBack={() => window.history.back()} /></Route>
-            <Route path="/me/notifications"><SettingsDetail title="Neural Alerts" onBack={() => window.history.back()} /></Route>
-            <Route path="/vault/notifications"><SettingsDetail title="Neural Alerts" onBack={() => window.history.back()} /></Route>
+            <Route path="/me/security"><SecuritySettings onBack={() => window.history.back()} /></Route>
+            <Route path="/vault/security"><SecuritySettings onBack={() => window.history.back()} /></Route>
+            <Route path="/me/region"><RegionSettings onBack={() => window.history.back()} /></Route>
+            <Route path="/vault/region"><RegionSettings onBack={() => window.history.back()} /></Route>
+            <Route path="/me/notifications"><NotificationSettings onBack={() => window.history.back()} /></Route>
+            <Route path="/vault/notifications"><NotificationSettings onBack={() => window.history.back()} /></Route>
             <Route path="/me/appearance"><AppearanceSettings state={state} setState={setState} /></Route>
             <Route path="/vault/appearance"><AppearanceSettings state={state} setState={setState} /></Route>
-            <Route path="/me/data_mgmt"><SettingsDetail title="Data Management" onBack={() => window.history.back()} /></Route>
-            <Route path="/vault/data_mgmt"><SettingsDetail title="Data Management" onBack={() => window.history.back()} /></Route>
-            <Route path="/me/about"><SettingsDetail title="About NAFSI" onBack={() => window.history.back()} /></Route>
-            <Route path="/vault/about"><SettingsDetail title="About NAFSI" onBack={() => window.history.back()} /></Route>
+            <Route path="/me/data_mgmt"><DataManagementSettings onBack={() => window.history.back()} /></Route>
+            <Route path="/vault/data_mgmt"><DataManagementSettings onBack={() => window.history.back()} /></Route>
+            <Route path="/me/about"><AboutSettings onBack={() => window.history.back()} /></Route>
+            <Route path="/vault/about"><AboutSettings onBack={() => window.history.back()} /></Route>
             <Route><Redirect to="/me" /></Route>
         </Switch>
     );
@@ -164,17 +164,150 @@ function AppearanceSettings({ state, setState }: MeProps) {
     );
 }
 
-function SettingsDetail({ title, onBack }: { title: string, onBack: () => void }) {
+function SecuritySettings({ onBack }: { onBack: () => void }) {
+    return (
+        <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4 overflow-y-auto pb-32">
+            <Header title="Security" leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
+            <div className="p-6 space-y-6">
+                <div className="glass-panel p-6 space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-pulse-cyan">Encryption Layer</h3>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="text-white font-bold">Biometric Unlock</p>
+                            <p className="text-[10px] text-slate-500 uppercase">Use Fingerprint or FaceID</p>
+                        </div>
+                        <div className="w-12 h-6 bg-pulse-cyan rounded-full p-1 flex justify-end">
+                            <div className="w-4 h-4 bg-void rounded-full" />
+                        </div>
+                    </div>
+                    <div className="flex justify-between items-center opacity-40">
+                        <div>
+                            <p className="text-white font-bold">Decoy Vault</p>
+                            <p className="text-[10px] text-slate-500 uppercase">Secondary distress pin</p>
+                        </div>
+                        <div className="w-12 h-6 bg-surface-low rounded-full p-1">
+                            <div className="w-4 h-4 bg-slate-600 rounded-full" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="glass-panel p-6 space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-pulse-purple">Active Sessions</h3>
+                    <div className="flex justify-between items-center py-2 border-b border-white/5">
+                        <span className="text-xs text-white">This Desktop App</span>
+                        <span className="text-[9px] font-bold text-pulse-cyan uppercase">Current</span>
+                    </div>
+                    <button className="w-full py-3 border border-pulse-pink/20 text-pulse-pink text-[10px] font-black uppercase tracking-widest">Terminate All Others</button>
+                </div>
+
+                <button className="w-full p-6 glass-panel flex items-center justify-between group">
+                    <div className="text-left">
+                        <span className="block text-xs font-bold text-white uppercase">Neural Key Rotation</span>
+                        <span className="text-[10px] text-slate-500 uppercase">Regenerate encryption master key</span>
+                    </div>
+                    <RefreshCcw size={16} className="text-slate-500" />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function RegionSettings({ onBack }: { onBack: () => void }) {
     return (
         <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
-            <Header title={title} leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
-            <div className="p-8 flex flex-col items-center justify-center flex-1 text-center space-y-4">
-                <div className="w-20 h-20 glass-panel rounded-full flex items-center justify-center animate-pulse">
-                    <ShieldCheck className="text-pulse-cyan" size={40} />
+            <Header title="Region" leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
+            <div className="p-6 space-y-4">
+                <h3 className="text-[10px] uppercase font-black tracking-widest text-slate-700 px-2">Primary Dialect</h3>
+                {["العربية / Tunisian", "English / US", "Français / France"].map((lang, i) => (
+                    <button key={lang} className={`w-full p-6 glass-panel flex items-center justify-between ${i === 0 ? 'border-pulse-cyan bg-pulse-cyan/5' : ''}`}>
+                        <span className="text-sm font-bold text-white">{lang}</span>
+                        {i === 0 && <ShieldCheck size={18} className="text-pulse-cyan" />}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function NotificationSettings({ onBack }: { onBack: () => void }) {
+    return (
+        <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
+            <Header title="Neural Alerts" leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
+            <div className="p-6 space-y-6">
+                <div className="glass-panel p-6 space-y-6">
+                    <ToggleItem title="Pulse Reminders" desc="Pings for daily neural mapping" active />
+                    <ToggleItem title="Crisis Sync" desc="Immediate alerts for detected distress" active />
+                    <ToggleItem title="Community Insight" desc="Nexus collective updates" />
                 </div>
-                <h3 className="text-xl font-display font-black uppercase">{title} Coming Soon</h3>
-                <p className="text-sm text-slate-500 font-arabic">سيتم تفعيل هذا الملحق في التحديث القادم.</p>
-                <button onClick={onBack} className="text-pulse-cyan font-bold uppercase text-[10px] tracking-widest mt-8">Return to Vault</button>
+            </div>
+        </div>
+    );
+}
+
+function DataManagementSettings({ onBack }: { onBack: () => void }) {
+    return (
+        <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
+            <Header title="Vault Control" leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
+            <div className="p-6 space-y-4">
+                <button className="w-full p-6 glass-panel text-left flex items-center justify-between group hov:bg-white/5">
+                    <div>
+                        <span className="block text-xs font-bold text-white uppercase">Export Neural History</span>
+                        <span className="text-[10px] text-slate-500 uppercase">Download AES-256 JSON</span>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-800" />
+                </button>
+                <div className="p-8 border-2 border-pulse-pink/20 bg-pulse-pink/5 rounded-2xl space-y-4">
+                    <h3 className="text-lg font-display font-black text-pulse-pink uppercase">Nuclear Protocol</h3>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest leading-relaxed">
+                        This will permanently delete all local logs, your identity ID, and all encrypted cloud backups. This cannot be undone.
+                    </p>
+                    <button className="w-full py-4 bg-pulse-pink text-white font-black uppercase tracking-widest text-xs">Purge All Data</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function AboutSettings({ onBack }: { onBack: () => void }) {
+    return (
+        <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4 overflow-y-auto pb-24">
+            <Header title="Sanctuary Info" leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
+            <div className="p-8 text-center space-y-8">
+                <div className="w-24 h-24 bg-pulse-cyan/10 rounded-3xl rotate-12 mx-auto flex items-center justify-center border border-pulse-cyan/20">
+                    <Fingerprint size={48} className="text-pulse-cyan -rotate-12" />
+                </div>
+                <div>
+                    <h2 className="text-3xl font-display font-black text-white uppercase tracking-tighter">NAFSI v4.2.0</h2>
+                    <p className="text-[10px] text-pulse-cyan font-bold tracking-[0.4em] uppercase mt-2">Neural Awareness & Functional Stability Interface</p>
+                </div>
+                <div className="space-y-4 text-left">
+                    <p className="text-sm text-slate-400 font-arabic leading-relaxed">
+                        Nafsi represents a new paradigm in digital mental health. By combining local-first encryption with neural mapping, we provide a sovereign sanctuary for your mind.
+                    </p>
+                    <div className="h-px bg-white/5" />
+                    <div className="flex justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                        <span>Legal Manifesto</span>
+                        <ChevronRight size={14} />
+                    </div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                        <span>Privacy Protocol</span>
+                        <ChevronRight size={14} />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function ToggleItem({ title, desc, active = false }: { title: string, desc: string, active?: boolean }) {
+    return (
+        <div className="flex justify-between items-center">
+            <div className="text-left">
+                <p className="text-white font-bold text-sm uppercase">{title}</p>
+                <p className="text-[10px] text-slate-500 uppercase">{desc}</p>
+            </div>
+            <div className={`w-12 h-6 rounded-full p-1 flex transition-colors ${active ? 'bg-pulse-cyan justify-end' : 'bg-surface-low justify-start'}`}>
+                <div className="w-4 h-4 bg-void rounded-full shadow-sm" />
             </div>
         </div>
     );

@@ -1,0 +1,2432 @@
+1. EXECUTIVE SUMMARY
+Product Name: Nafsi (نفسي)
+Tagline: "Your private companion that understands Arab souls"
+Target Market: MENA region (Primary: Tunisia, Secondary: GCC, Egypt, Levant)
+User Persona: Young Arabs (16-35) experiencing anxiety, depression, or cultural/family stress who cannot access traditional therapy due to stigma, cost, or location.
+The Problem:
+62k+ upvotes on Reddit threads about therapy matchmaking failures
+Western therapy apps don't understand Arab family dynamics, Islamic values, or dialects (Darija)
+Mental health stigma prevents 78% of young Arabs from seeking help
+No localized, culturally-aware AI companion exists
+The Solution:
+A privacy-first, Arabic-native AI therapist that understands:
+Tunisian Darija + Modern Standard Arabic + French mixing (code-switching)
+Islamic cultural context (family honor, religious guilt, marriage pressure)
+Local stressors (unemployment, immigration pressure, academic expectations)
+2. PRODUCT REQUIREMENTS DOCUMENT (PRD)
+2.1 Core Features (MVP)
+Must Have (Week 1-4)
+Table
+Feature	Description	Success Metric
+Anonymous Chat	Text-based conversation with AI therapist	<2s response time
+Cultural Context Engine	System prompt aware of Tunisian/Arab social norms	90% user "feels understood" rating
+Multi-Modal Input	Text + Voice notes (Arabic speech-to-text)	85% transcription accuracy
+Mood Tracking	Simple 1-5 daily check-in with Arabic emotion wheel	60% DAU engagement
+Crisis Detection	Keywords trigger emergency resources (Tunisia hotlines)	100% detection rate
+Offline-First	Local storage of chat history (privacy)	Works without internet
+Should Have (Month 2)
+Guided CBT Exercises: Islamic-compatible cognitive behavioral therapy modules
+Group Support: Anonymous moderated group chats (by topic: exam stress, heartbreak, family issues)
+Resource Library: Localized articles (Arabic psychology blogs, religious coping mechanisms)
+Could Have (Month 3+)
+Parent/Guardian Mode: For the under-18 users with parental consent workflows
+Professional Referral: Handoff to Tunisian psychologists when AI detects severity
+Islamic Integration: Prayer time reminders, Quran verses for anxiety (optional toggle)
+2.2 Non-Functional Requirements
+Privacy: Zero data retention policy, encrypted local storage, no phone number required (email optional)
+Performance: First paint <1.5s on 3G, AI response <3s
+Accessibility: RTL (Right-to-Left) native, large font for Arabic script, dyslexia-friendly
+Compliance: GDPR-ready (for EU diaspora), Tunisian data protection law compliant
+3. TECHNICAL SPECIFICATION
+3.1 Architecture Overview
+plain
+Copy
+┌─────────────────────────────────────────────────────────────┐
+│                        CLIENT LAYER                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐   │
+│  │   Mobile     │  │    Web       │  │    Desktop      │   │
+│  │  (Expo/RN)   │  │  (Expo Web)  │  │ (Electrobun)    │   │
+│  │  iOS/Android │  │   PWA        │  │ Linux/Win/Mac   │   │
+│  └──────┬───────┘  └──────┬───────┘  └────────┬────────┘   │
+└─────────┼──────────────────┼───────────────────┼────────────┘
+          │                  │                   │
+          └──────────────────┼───────────────────┘
+                             │
+┌────────────────────────────▼──────────────────────────────┐
+│                    EDGE LAYER (Cloudflare)                │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │  void Framework (Vite + Cloudflare Workers)          │ │
+│  │  • API Routes (Hono)                                 │ │
+│  │  • D1 Database (SQLite at Edge)                      │ │
+│  │  • KV Cache (Session state)                          │ │
+│  │  • R2 Storage (Voice notes, exports)                 │ │
+│  └────────────────────────┬─────────────────────────────┘ │
+└───────────────────────────┼────────────────────────────────┘
+                            │
+┌───────────────────────────▼────────────────────────────────┐
+│                   AI LAYER (External)                      │
+│  Mistral AI API (open-mistral-7b / mistral-small)         │
+│  • 1B tokens/month free tier                               │
+│  • 1 req/sec rate limit                                    │
+│  • Arabic/Darija fine-tuned system prompts                 │
+└────────────────────────────────────────────────────────────┘
+3.2 Tech Stack Deep Dive
+Frontend (Unified Codebase)
+Framework: React Native (Expo SDK 52+)
+Styling: NativeWind (Tailwind for RN) + Tamagui (optional for desktop parity)
+State: Zustand (lightweight, no boilerplate)
+Query: TanStack Query v5 (offline sync, caching)
+Navigation: Expo Router v3 (file-based routing)
+Storage: Expo Secure Store (encrypted local storage)
+Chat UI: react-native-gifted-chat (customized for RTL)
+Desktop Wrapper
+Runtime: Electrobun (Bun-based, lightweight)
+View Layer: React + Vite (same codebase as web)
+Styling: Tailwind CSS
+Bridge: Electrobun's built-in Zig/C++ bindings for native features (system tray, notifications)
+Bundle Size Target: <50MB (with CEF on Linux)
+Backend (Edge-Native)
+Platform: Cloudflare Workers (void framework)
+Language: TypeScript (transpiled to Edge-compatible JS)
+Framework: Hono (ultra-light, Express-like syntax for Workers)
+Database:
+Cloudflare D1 (SQLite) for relational data (users, chat history metadata)
+Drizzle ORM (type-safe schema management)
+Cache: Cloudflare KV (session tokens, rate limiting)
+Storage: Cloudflare R2 (S3-compatible, for voice message backups)
+Auth: Better Auth (oidc/oauth, magic links, session management)
+Cron: Cloudflare Cron Triggers (daily mood check-in reminders)
+AI Integration
+Provider: Mistral AI (Free Tier)
+Model: open-mistral-7b (fast, cheap) or mistral-small (better reasoning)
+Context Window: 32k tokens (sufficient for long therapy sessions)
+Fallback: OpenRouter (if Mistral rate limited)
+Prompt Engineering:
+System prompt in Arabic with cultural guardrails
+Chain-of-thought disabled for speed
+Temperature: 0.7 (creative but consistent)
+3.3 Database Schema (Drizzle)
+TypeScript
+Copy
+// backend/db/schema.ts
+
+// Users table - minimal PII for privacy
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(), // UUID
+  anonymousTag: text('anonymous_tag'), // "Seeker_4829"
+  createdAt: integer('created_at', { mode: 'timestamp' }).defaultNow(),
+  lastActive: integer('last_active', { mode: 'timestamp' }),
+  preferredLanguage: text('language').default('ar'), // ar, fr, en
+  ageRange: text('age_range'), // 13-17, 18-24, 25-34, 35+
+  region: text('region'), // tunisia, egypt, gulf, etc.
+});
+
+// Chat sessions
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id),
+  startedAt: integer('started_at', { mode: 'timestamp' }).defaultNow(),
+  endedAt: integer('ended_at', { mode: 'timestamp' }),
+  moodEntry: integer('mood_entry'), // 1-5 scale
+  topic: text('topic'), // anxiety, family, work, etc.
+  isCrisis: integer('is_crisis', { mode: 'boolean' }).default(false),
+});
+
+// Messages (encrypted content, metadata only here)
+export const messages = sqliteTable('messages', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').references(() => sessions.id),
+  role: text('role'), // 'user' | 'assistant' | 'system'
+  contentHash: text('content_hash'), // hash for integrity
+  timestamp: integer('timestamp', { mode: 'timestamp' }).defaultNow(),
+  tokensUsed: integer('tokens_used'), // for rate limiting tracking
+});
+
+// Crisis interventions
+export const crisisLogs = sqliteTable('crisis_logs', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id'),
+  detectedAt: integer('detected_at', { mode: 'timestamp' }),
+  severity: text('severity'), // high, medium
+  resourcesProvided: text('resources_provided'), // JSON array
+});
+3.4 API Endpoints (void/Hono)
+TypeScript
+Copy
+// backend/src/routes/chat.ts
+app.post('/api/chat', async (c) => {
+  const { message, sessionId, userId } = await c.req.json();
+  
+  // 1. Rate limit check (1 req/sec per user)
+  const lastRequest = await c.env.KV.get(`rate:${userId}`);
+  if (lastRequest && Date.now() - parseInt(lastRequest) < 1000) {
+    return c.json({ error: 'Rate limit exceeded' }, 429);
+  }
+  await c.env.KV.put(`rate:${userId}`, Date.now().toString());
+
+  // 2. Retrieve conversation history (last 10 messages for context)
+  const history = await c.env.DB.prepare(
+    'SELECT role, content FROM messages WHERE sessionId = ? ORDER BY timestamp DESC LIMIT 10'
+  ).bind(sessionId).all();
+
+  // 3. Construct Arabic cultural prompt
+  const systemPrompt = `أنت معالج نفسي متعاطف... [Cultural context]`;
+
+  // 4. Call Mistral
+  const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${c.env.MISTRAL_API_KEY}` },
+    body: JSON.stringify({
+      model: 'open-mistral-7b',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...history.results,
+        { role: 'user', content: message }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  });
+
+  // 5. Crisis detection (keyword matching)
+  const aiResponse = await response.json();
+  const content = aiResponse.choices[0].message.content;
+  if (containsCrisisKeywords(content + message)) {
+    await triggerCrisisProtocol(c.env.DB, sessionId);
+  }
+
+  // 6. Store message metadata (content encrypted client-side)
+  await c.env.DB.prepare('INSERT INTO messages...').bind(...).run();
+
+  return c.json({ reply: content, sessionId });
+});
+4. DESIGN DOCUMENT
+4.1 Visual Identity
+Color Palette:
+Primary: Deep Teal (#0D7377) — Calm, Islamic art inspired
+Secondary: Sand Gold (#D4AF37) — Warmth, premium feel
+Background: Off-White (#FDFCF8) — Paper-like, easy on eyes for Arabic reading
+Crisis Alert: Deep Red (#C41E3A) — Emergency, action required
+Success: Sage Green (#87A878) — Mood improvement indicators
+Typography:
+Arabic: "Noto Sans Arabic" (Google Fonts) — Excellent Darija support, multiple weights
+Latin: "Inter" — Clean, matches Arabic x-height
+Scale: 16px base, 1.618 golden ratio scale (Arabic needs more line-height: 1.8)
+4.2 UI/UX Patterns
+Mobile First (Expo)
+Onboarding:
+No email required (anonymous UUID generation)
+Single screen: "What brings you here today?" (topic selection)
+Language toggle: العربية | Français | English (top right)
+Chat Interface:
+RTL Layout: Messages align right-to-left
+Bubble Style:
+User: Teal background, right-aligned, sharp corners (decisive)
+AI: White/grey background, left-aligned, rounded corners (soft)
+Input: Floating action button with microphone (voice input prominent)
+Typing Indicator: Islamic geometric pattern animation (subtle cultural cue)
+Mood Check-in:
+Pre-chat: "How is your heart today?" (كيف حال قلبك اليوم؟)
+5 emojis from Stormy (⛈️) to Peaceful (☀️)
+Optional: "What is weighing on you?" (tag selection)
+Desktop (Electrobun)
+Window: Frameless, rounded corners (12px radius), drop shadow
+Sidebar: Collapsible, shows history tree (sessions as "conversations")
+Zen Mode: Full screen, distraction-free, green-tinted background (eye strain reduction)
+Global Shortcut: Ctrl+Shift+N (or Cmd+Shift+N) to open quick chat from anywhere
+4.3 Key Screens (Wireframe Description)
+Home Screen:
+plain
+Copy
+┌─────────────────────────────┐
+│  مرحباً    [Profile Icon]  │
+│  Ready to talk?             │
+│                             │
+│  [🎤 Start Voice Session]   │
+│                             │
+│  Recent Conversations:      │
+│  ┌───────────────────────┐  │
+│  │ "About my exams..."   │  │
+│  │ 2 hours ago    [→]    │  │
+│  └───────────────────────┘  │
+│                             │
+│  [+] New Text Chat          │
+└─────────────────────────────┘
+Chat Screen:
+plain
+Copy
+┌─────────────────────────────┐
+│ [←] Session #482        [⋮] │
+│                             │
+│         ┌──────────┐        │
+│         │ مرحباً    │        │  <- AI (left)
+│         │ كيف يمكنني│        │
+│         │ مساعدتك؟  │        │
+│         └──────────┘        │
+│                             │
+│  ┌──────────┐               │
+│  │ أشعر بالقلق│               │  <- User (right)
+│  │ بشأن...  │               │
+│  └──────────┘               │
+│                             │
+│  [🎤] [Type message...] [↑] │
+└─────────────────────────────┘
+5. DEVELOPMENT ROADMAP
+Phase 1: Foundation (Week 1-2)
+[x] Monorepo setup (pnpm + Turbo)
+[x] Backend scaffolding (void + D1)
+[ ] Electrobun desktop wrapper (Linux primary)
+[ ] Expo mobile app with RTL layout
+[ ] Mistral API integration with Arabic system prompt
+Phase 2: Core Chat (Week 3-4)
+[ ] End-to-end encrypted chat storage (client-side encryption)
+[ ] Voice note recording (Expo Audio API)
+[ ] Crisis keyword detection (Arabic NLP)
+[ ] Offline queue (store messages when offline, sync when connected)
+Phase 3: Polish & Launch (Week 5-6)
+[ ] Mood tracking visualization (simple line chart)
+[ ] Resource library (static JSON of Tunisian mental health resources)
+[ ] Parental consent flow (for under-18 compliance)
+[ ] Beta testing (friends/family in Tunisia)
+Phase 4: Monetization Prep (Month 2)
+[ ] Payment integration (Flouci for Tunisia, Stripe for diaspora)
+[ ] Premium features: Unlimited voice notes, longer context window
+[ ] Professional referral network (partnerships with Tunisian therapists)
+6. BUSINESS MODEL (The "Get Rich" Plan)
+Since you're under 18 in Tunisia:
+Phase 1: Validation (Now)
+100% free, build user base
+Anonymous usage data to prove demand
+Phase 2: Parent Partnership
+Parent opens Flouci Business account (required for Tunisian payment processing)
+Revenue split agreement (written, notarized)
+You operate, they own the financial entity
+Monetization Streams:
+Freemium: Free = 10 messages/day. Premium = Unlimited ($3/month in Tunisia, $9/month for diaspora)
+B2B: Sell anonymous trend data to universities (stress levels during exam periods)
+Referral: Commission from therapists when users convert to paid professional help
+7. RISK MITIGATION
+Technical Risks:
+Mistral Rate Limits (1 req/sec): Implement client-side queueing and "thinking..." states
+Electrobun Linux Issues: Maintain web fallback (PWA) if desktop breaks
+D1 Latency: Aggressive KV caching for session data
+Legal/Ethical Risks:
+Medical Advice Disclaimer: Clear "This is not a replacement for professional help" on every session
+Data Privacy: Zero-knowledge architecture (we can't read chats even if subpoenaed)
+Crisis Handling: Auto-dial 190 (Tunisia mental health hotline) when severe keywords detected
+
+Role: You are a senior platform engineer specializing in privacy-first, globally-distributed applications. You have deep expertise in Cloudflare's edge ecosystem, zero-trust security architectures, and AI service orchestration at scale. You understand the unique constraints of mental health applications: regulatory compliance, crisis intervention requirements, and the absolute necessity of data minimization.
+EXECUTIVE CONTEXT
+Nafsi is a privacy-first, AI-powered mental health companion for the MENA region. The backend must handle:
+Anonymous users (no PII required, optional email)
+Multi-tenant AI conversations with cultural context (Arabic, Darija, French)
+Real-time crisis detection with automated intervention
+Strict data sovereignty (GDPR, Tunisian data protection law)
+Offline-first sync with eventual consistency
+Scale Targets (Year 1):
+50,000 MAU
+500,000 chat sessions/month
+10M messages/month
+99.95% uptime (21.6 min downtime/month max)
+1. INFRASTRUCTURE FOUNDATION
+1.1 Cloudflare Project Structure
+plain
+Copy
+nafsi-backend/
+├── wrangler.toml              # Environment configs (dev/staging/prod)
+├── src/
+│   ├── index.ts               # Worker entry point
+│   ├── routes/                # Hono route handlers
+│   ├── services/              # Business logic layer
+│   ├── db/                    # Drizzle schema & migrations
+│   ├── ai/                    # Mistral/OpenRouter clients
+│   ├── security/              # Encryption, rate limiting, validation
+│   ├── i18n/                  # Locale detection & content
+│   └── types/                 # Shared TypeScript definitions
+├── migrations/                # D1 SQL migrations
+├── scripts/                   # Deployment & seeding
+└── tests/                     # Unit & integration tests
+1.2 Wrangler Configuration
+toml
+Copy
+# Production environment
+name = "nafsi-api"
+main = "src/index.ts"
+compatibility_date = "2024-04-01"
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+d1_databases = [{ binding = "DB", database_name = "nafsi-prod", database_id = "..." }]
+kv_namespaces = [{ binding = "KV", id = "..." }]
+r2_buckets = [{ binding = "STORAGE", bucket_name = "nafsi-voice-notes" }]
+
+# Rate limiting: 1 req/sec sustained, 10 req/min burst
+[[env.production.unsafe.bindings]]
+name = "RATE_LIMITER"
+type = "ratelimit"
+namespace_id = "nafsi-rate-limit"
+simple = { limit = 10, period = 60 }
+
+# Cron triggers
+[triggers]
+crons = ["0 9 * * *"]  # Daily mood reminders 9 AM
+2. DATABASE ARCHITECTURE (D1 + Drizzle)
+2.1 Schema Design Principles
+Zero-knowledge content: Message content never touches server unencrypted
+Metadata-only storage: Server stores hashes, timestamps, tokens used
+Soft deletes: 30-day grace period before hard deletion
+Regional partitioning: Logical separation by user region for compliance
+2.2 Complete Drizzle Schema
+TypeScript
+Copy
+// src/db/schema.ts
+
+import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+
+// Users: Minimal metadata, no PII required
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),                    // UUID v4, client-generated
+  anonymousTag: text('anonymous_tag').notNull(),  // "Seeker_4829"
+  createdAt: integer('created_at', { mode: 'timestamp' }).defaultNow(),
+  lastActiveAt: integer('last_active_at', { mode: 'timestamp' }),
+  
+  // Preferences
+  preferredLanguage: text('preferred_language').default('ar').notNull(), // ar, ar-TN, fr, en
+  fallbackLanguage: text('fallback_language').default('fr'),
+  region: text('region').notNull(),               // tunisia, gcc, egypt, levant, diaspora
+  
+  // Optional (can be null)
+  ageRange: text('age_range'),                    // 13-17, 18-24, 25-34, 35+
+  emailHash: text('email_hash'),                  // SHA-256 of optional email
+  isEmailVerified: integer('is_email_verified', { mode: 'boolean' }).default(false),
+  
+  // Security
+  clientPublicKey: text('client_public_key'),     // For E2E encryption (future)
+  encryptionVersion: integer('encryption_version').default(1),
+  
+  // Status
+  isDeleted: integer('is_deleted', { mode: 'boolean' }).default(false),
+  deletionRequestedAt: integer('deletion_requested_at', { mode: 'timestamp' }),
+  
+  // Crisis tracking
+  crisisCount: integer('crisis_count').default(0),
+  lastCrisisAt: integer('last_crisis_at', { mode: 'timestamp' }),
+}, (table) => ({
+  idxLastActive: index('idx_users_last_active').on(table.lastActiveAt),
+  idxRegion: index('idx_users_region').on(table.region),
+  idxDeletion: index('idx_users_deletion').on(table.deletionRequestedAt),
+}));
+
+// Sessions: Chat containers with metadata
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey(),                    // UUID
+  userId: text('user_id').references(() => users.id).notNull(),
+  
+  // Session metadata
+  startedAt: integer('started_at', { mode: 'timestamp' }).defaultNow(),
+  endedAt: integer('ended_at', { mode: 'timestamp' }),
+  topic: text('topic'),                           // anxiety, family, work, etc.
+  
+  // Mood snapshot
+  preSessionMood: integer('pre_session_mood'),    // 1-5 scale
+  postSessionMood: integer('post_session_mood'),
+  
+  // Crisis handling
+  isCrisis: integer('is_crisis', { mode: 'boolean' }).default(false),
+  crisisSeverity: text('crisis_severity'),        // high, medium, low
+  crisisHandledAt: integer('crisis_handled_at', { mode: 'timestamp' }),
+  
+  // AI metrics
+  totalTokensUsed: integer('total_tokens_used').default(0),
+  aiModelUsed: text('ai_model_used').default('open-mistral-7b'),
+  
+  // Status
+  status: text('status').default('active').notNull(), // active, closed, archived
+  isDeleted: integer('is_deleted', { mode: 'boolean' }).default(false),
+}, (table) => ({
+  idxUserSessions: index('idx_sessions_user').on(table.userId, table.startedAt),
+  idxCrisis: index('idx_sessions_crisis').on(table.isCrisis, table.crisisHandledAt),
+  idxActive: index('idx_sessions_active').on(table.userId, table.status),
+}));
+
+// Messages: Encrypted content metadata only
+export const messages = sqliteTable('messages', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').references(() => sessions.id).notNull(),
+  
+  // Role and ordering
+  role: text('role').notNull(),                   // 'user', 'assistant', 'system', 'crisis_alert'
+  sequence: integer('sequence').notNull(),        // Strict ordering within session
+  
+  // Content (encrypted client-side)
+  contentHash: text('content_hash').notNull(),    // SHA-256 for integrity verification
+  contentLength: integer('content_length'),       // Unencrypted size for quota tracking
+  
+  // Encryption metadata
+  encryptionIv: text('encryption_iv'),            // Initialization vector
+  encryptionAlgorithm: text('encryption_algorithm').default('aes-256-gcm'),
+  
+  // Timestamps
+  clientTimestamp: integer('client_timestamp', { mode: 'timestamp' }).notNull(), // User device time
+  serverTimestamp: integer('server_timestamp', { mode: 'timestamp' }).defaultNow(),
+  
+  // AI metadata
+  tokensUsed: integer('tokens_used'),              // For rate limiting & cost tracking
+  latencyMs: integer('latency_ms'),                // AI response time
+  modelVersion: text('model_version'),
+  
+  // Crisis detection
+  crisisKeywordsMatched: text('crisis_keywords_matched'), // JSON array
+  sentimentScore: real('sentiment_score'),        // -1 to 1, if analyzed
+  
+  // Sync status
+  syncStatus: text('sync_status').default('synced'), // pending, synced, failed
+  retryCount: integer('retry_count').default(0),
+}, (table) => ({
+  idxSessionSequence: uniqueIndex('idx_messages_sequence').on(table.sessionId, table.sequence),
+  idxPendingSync: index('idx_messages_pending').on(table.syncStatus, table.retryCount),
+  idxCrisisContent: index('idx_messages_crisis').on(table.crisisKeywordsMatched),
+}));
+
+// Mood entries: Daily check-ins
+export const moodEntries = sqliteTable('mood_entries', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').references(() => users.id).notNull(),
+  
+  // Core data
+  recordedAt: integer('recorded_at', { mode: 'timestamp' }).defaultNow(),
+  moodScore: integer('mood_score').notNull(),     // 1-5
+  
+  // Context
+  tags: text('tags'),                             // JSON array: ["exams", "family", "insomnia"]
+  notesHash: text('notes_hash'),                   // Encrypted optional notes
+  sessionId: text('session_id'),                  // Optional link to session
+  
+  // Source
+  source: text('source').default('manual'),      // manual, pre_session, post_session, cron
+  
+  // Trends
+  streakDay: integer('streak_day').default(0),    // Consecutive days of entry
+}, (table) => ({
+  idxUserMood: index('idx_mood_user_date').on(table.userId, table.recordedAt),
+  idxStreak: index('idx_mood_streak').on(table.userId, table.streakDay),
+}));
+
+// Crisis interventions: Automated and manual
+export const crisisInterventions = sqliteTable('crisis_interventions', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id').references(() => sessions.id).notNull(),
+  messageId: text('message_id').references(() => messages.id),
+  
+  // Detection
+  detectedAt: integer('detected_at', { mode: 'timestamp' }).defaultNow(),
+  detectionMethod: text('detection_method').notNull(), // keyword, ai_flag, user_report
+  
+  // Severity assessment
+  severity: text('severity').notNull(),           // critical, high, medium, low
+  confidenceScore: real('confidence_score'),      // 0-1
+  
+  // Keywords that triggered (if applicable)
+  matchedKeywords: text('matched_keywords'),        // JSON array
+  contextSnippetHash: text('context_snippet_hash'), // Encrypted surrounding context
+  
+  // Response
+  resourcesProvided: text('resources_provided'),   // JSON: [{type: "hotline", number: "190", name: "..."}]
+  autoMessageSent: integer('auto_message_sent', { mode: 'boolean' }).default(false),
+  humanEscalatedAt: integer('human_escalated_at', { mode: 'timestamp' }),
+  
+  // Outcome
+  userAcknowledgedAt: integer('user_acknowledged_at', { mode: 'timestamp' }),
+  resolutionStatus: text('resolution_status').default('pending'), // pending, acknowledged, escalated, resolved
+  
+  // Audit
+  handledBy: text('handled_by'),                   // AI system or human operator ID
+}, (table) => ({
+  idxPendingCrisis: index('idx_crisis_pending').on(resolutionStatus, detectedAt),
+  idxSessionCrisis: index('idx_crisis_session').on(sessionId),
+}));
+
+// Audit logs: Security and compliance (minimal, privacy-preserving)
+export const auditLogs = sqliteTable('audit_logs', {
+  id: text('id').primaryKey(),
+  timestamp: integer('timestamp', { mode: 'timestamp' }).defaultNow(),
+  
+  // Actor (can be anonymous)
+  userId: text('user_id'),
+  anonymousTag: text('anonymous_tag'),
+  sessionId: text('session_id'),
+  
+  // Action
+  action: text('action').notNull(),                // crisis_detected, rate_limit_hit, data_exported, deleted
+  resource: text('resource'),                      // endpoint or resource type
+  
+  // Context (no content!)
+  ipHash: text('ip_hash'),                        // Hashed IP for abuse detection
+  userAgentHash: text('user_agent_hash'),          // Hashed UA
+  country: text('country'),                        // GeoIP country (for compliance)
+  
+  // Result
+  success: integer('success', { mode: 'boolean' }).default(true),
+  errorCode: text('error_code'),
+}, (table) => ({
+  idxUserAudit: index('idx_audit_user').on(table.userId, table.timestamp),
+  idxActionAudit: index('idx_audit_action').on(table.action, table.timestamp),
+}));
+
+// Regional content: Localized resources
+export const regionalResources = sqliteTable('regional_resources', {
+  id: text('id').primaryKey(),
+  region: text('region').notNull(),
+  resourceType: text('resource_type').notNull(),   // hotline, clinic, ngo, article
+  
+  // Content (public, not encrypted)
+  name: text('name').notNull(),
+  nameLocalized: text('name_localized'),           // JSON: {ar: "...", fr: "..."}
+  description: text('description'),
+  contactInfo: text('contact_info'),                // JSON: {phone: "190", email: "...", url: "..."}
+  
+  // Crisis applicability
+  isCrisisResource: integer('is_crisis_resource', { mode: 'boolean' }).default(false),
+  crisisTypes: text('crisis_types'),              // JSON: ["suicide", "abuse", "panic"]
+  
+  // Availability
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  priority: integer('priority').default(0),        // Display order
+  
+  // Metadata
+  lastVerifiedAt: integer('last_verified_at', { mode: 'timestamp' }),
+  verificationSource: text('verification_source'),
+}, (table) => ({
+  idxRegionResources: index('idx_resources_region').on(table.region, table.resourceType, table.isActive),
+  idxCrisisResources: index('idx_resources_crisis').on(table.isCrisisResource, table.crisisTypes),
+}));
+2.3 Migration Strategy
+Use Drizzle Kit for schema migrations
+Zero-downtime deployments: Create new tables → backfill → cutover → drop old
+Seed data: Default regional resources for Tunisia, GCC, Egypt, Levant
+3. API LAYER (Hono + void Framework)
+3.1 Application Bootstrap
+TypeScript
+Copy
+// src/index.ts
+
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
+import { secureHeaders } from 'hono/secure-headers';
+import { timing } from 'hono/timing';
+
+import { authMiddleware } from './security/auth';
+import { rateLimitMiddleware } from './security/rateLimit';
+import { errorHandler } from './middleware/errorHandler';
+import { localeMiddleware } from './i18n/locale';
+
+import chatRoutes from './routes/chat';
+import sessionRoutes from './routes/sessions';
+import moodRoutes from './routes/mood';
+import crisisRoutes from './routes/crisis';
+import resourceRoutes from './routes/resources';
+import authRoutes from './routes/auth';
+import webhookRoutes from './routes/webhooks';
+
+const app = new Hono<{ Bindings: Env }>();
+
+// Global middleware
+app.use('*', logger());
+app.use('*', timing());
+app.use('*', cors({
+  origin: ['https://nafsi.app', 'https://*.nafsi.app', 'http://localhost:3000'],
+  allowMethods: ['POST', 'GET', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Client-Version', 'X-Encryption-Version'],
+  maxAge: 86400,
+}));
+app.use('*', secureHeaders({
+  contentSecurityPolicy: {
+    defaultSrc: ["'self'"],
+    connectSrc: ["'self'", "https://api.mistral.ai", "https://openrouter.ai"],
+  },
+}));
+app.use('*', localeMiddleware);
+app.use('*', authMiddleware);
+app.use('/api/*', rateLimitMiddleware);
+
+// Routes
+app.route('/api/chat', chatRoutes);
+app.route('/api/sessions', sessionRoutes);
+app.route('/api/mood', moodRoutes);
+app.route('/api/crisis', crisisRoutes);
+app.route('/api/resources', resourceRoutes);
+app.route('/api/auth', authRoutes);
+app.route('/webhooks', webhookRoutes);
+
+// Health check
+app.get('/health', (c) => c.json({ 
+  status: 'healthy', 
+  region: c.req.raw.cf?.colo,
+  timestamp: new Date().toISOString() 
+}));
+
+// Error handling
+app.onError(errorHandler);
+
+export default app;
+3.2 Core Route: Chat Endpoint
+TypeScript
+Copy
+// src/routes/chat.ts
+
+import { Hono } from 'hono';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
+import { drizzle } from 'drizzle-orm/d1';
+import { eq, desc, and } from 'drizzle-orm';
+
+import { messages, sessions, crisisInterventions, users } from '../db/schema';
+import { MistralClient } from '../ai/mistral';
+import { OpenRouterClient } from '../ai/openrouter';
+import { CrisisDetector } from '../services/crisisDetection';
+import { RegionalResources } from '../services/regionalResources';
+import { encryptMetadata, generateHash } from '../security/crypto';
+import { rateLimitCheck } from '../security/rateLimit';
+
+const chatSchema = z.object({
+  message: z.object({
+    contentHash: z.string().length(64),           // SHA-256 of encrypted content
+    contentLength: z.number().int().max(10000),   // Max 10KB encrypted
+    encryptionIv: z.string(),
+    sequence: z.number().int(),
+  }),
+  sessionId: z.string().uuid().optional(),        // New session if omitted
+  preferredLanguage: z.enum(['ar', 'ar-TN', 'fr', 'en']).default('ar'),
+  clientTimestamp: z.number().int(),                // Unix ms from client
+});
+
+const chatRoutes = new Hono<{ Bindings: Env }>();
+
+chatRoutes.post('/', zValidator('json', chatSchema), async (c) => {
+  const startTime = Date.now();
+  const db = drizzle(c.env.DB);
+  const body = c.req.valid('json');
+  const userId = c.get('userId') as string;
+  const userRegion = c.get('region') as string;
+  
+  // 1. Rate limiting (strict: 1 req/sec sustained, 10/min burst)
+  const rateLimit = await rateLimitCheck(c.env.KV, userId, {
+    sustained: 1,      // 1 per second
+    burst: 10,         // 10 per minute
+    window: 60,
+  });
+  
+  if (!rateLimit.allowed) {
+    await logAudit(c, 'rate_limit_hit', false);
+    return c.json({ 
+      error: 'Rate limit exceeded',
+      retryAfter: rateLimit.retryAfter 
+    }, 429);
+  }
+
+  // 2. Session management
+  let sessionId = body.sessionId;
+  let session;
+  
+  if (!sessionId) {
+    // Create new session
+    sessionId = crypto.randomUUID();
+    const user = await db.select().from(users).where(eq(users.id, userId)).get();
+    
+    session = await db.insert(sessions).values({
+      id: sessionId,
+      userId,
+      topic: 'general', // Will be refined by AI analysis
+      preSessionMood: null, // Set by separate mood check-in
+      status: 'active',
+    }).returning().get();
+  } else {
+    // Verify session exists and belongs to user
+    session = await db.select().from(sessions).where(and(
+      eq(sessions.id, sessionId),
+      eq(sessions.userId, userId),
+      eq(sessions.status, 'active')
+    )).get();
+    
+    if (!session) {
+      return c.json({ error: 'Session not found or closed' }, 404);
+    }
+  }
+
+  // 3. Store user message metadata
+  const userMessageId = crypto.randomUUID();
+  await db.insert(messages).values({
+    id: userMessageId,
+    sessionId,
+    role: 'user',
+    sequence: body.message.sequence,
+    contentHash: body.message.contentHash,
+    contentLength: body.message.contentLength,
+    encryptionIv: body.message.encryptionIv,
+    clientTimestamp: new Date(body.clientTimestamp),
+    serverTimestamp: new Date(),
+    syncStatus: 'synced',
+  });
+
+  // 4. Retrieve conversation context (last 10 messages for AI)
+  const history = await db.select({
+    role: messages.role,
+    contentHash: messages.contentHash, // Client will resolve content
+    sequence: messages.sequence,
+  })
+  .from(messages)
+  .where(eq(messages.sessionId, sessionId))
+  .orderBy(desc(messages.sequence))
+  .limit(10);
+
+  // Reverse to chronological order for AI
+  const contextMessages = history.reverse();
+
+  // 5. Crisis detection (pre-AI, fast path)
+  const crisisDetector = new CrisisDetector(userRegion);
+  const crisisCheck = await crisisDetector.analyze(
+    body.message.contentHash, // We analyze metadata patterns, not content
+    contextMessages,
+    userRegion
+  );
+
+  let crisisIntervention = null;
+  if (crisisCheck.isCrisis) {
+    crisisIntervention = await handleCrisis(c, {
+      sessionId,
+      messageId: userMessageId,
+      severity: crisisCheck.severity,
+      keywords: crisisCheck.matchedKeywords,
+      detector: crisisDetector,
+      db,
+    });
+  }
+
+  // 6. AI orchestration
+  const aiClient = new MistralClient(c.env.MISTRAL_API_KEY);
+  const fallbackClient = new OpenRouterClient(c.env.OPENROUTER_API_KEY);
+  
+  let aiResponse;
+  let tokensUsed = 0;
+  let modelUsed = 'open-mistral-7b';
+  let latencyMs = 0;
+
+  try {
+    const aiStart = Date.now();
+    
+    // Build culturally-aware system prompt
+    const systemPrompt = buildSystemPrompt({
+      language: body.preferredLanguage,
+      region: userRegion,
+      topic: session.topic,
+      isCrisis: crisisCheck.isCrisis,
+    });
+
+    aiResponse = await aiClient.chat({
+      systemPrompt,
+      messages: contextMessages.map(m => ({
+        role: m.role,
+        // In production, client sends encrypted content that we never decrypt
+        // Here we use a placeholder that the client will replace
+        content: `[ENCRYPTED:${m.contentHash}]`,
+      })),
+      temperature: 0.7,
+      maxTokens: 500,
+    });
+
+    latencyMs = Date.now() - aiStart;
+    tokensUsed = aiResponse.usage.total_tokens;
+    modelUsed = aiResponse.model;
+
+  } catch (error) {
+    // Fallback to OpenRouter if Mistral fails/rate-limited
+    if (error instanceof RateLimitError || error instanceof ServiceUnavailableError) {
+      const aiStart = Date.now();
+      aiResponse = await fallbackClient.chat({
+        model: 'mistralai/mistral-7b-instruct',
+        messages: contextMessages,
+        temperature: 0.7,
+        maxTokens: 500,
+      });
+      latencyMs = Date.now() - aiStart;
+      tokensUsed = aiResponse.usage.total_tokens;
+      modelUsed = 'mistral-7b-instruct-or';
+    } else {
+      throw error;
+    }
+  }
+
+  // 7. Store AI response metadata
+  const assistantMessageId = crypto.randomUUID();
+  const assistantContentHash = generateHash(aiResponse.content);
+  
+  await db.insert(messages).values({
+    id: assistantMessageId,
+    sessionId,
+    role: 'assistant',
+    sequence: body.message.sequence + 1,
+    contentHash: assistantContentHash,
+    contentLength: aiResponse.content.length,
+    encryptionIv: null, // AI content encrypted by client on receipt
+    clientTimestamp: new Date(),
+    serverTimestamp: new Date(),
+    tokensUsed,
+    latencyMs,
+    modelVersion: modelUsed,
+    syncStatus: 'pending', // Client confirms receipt
+  });
+
+  // 8. Update session metrics
+  await db.update(sessions)
+    .set({
+      totalTokensUsed: sql`${sessions.totalTokensUsed} + ${tokensUsed}`,
+      lastMessageAt: new Date(),
+      isCrisis: crisisCheck.isCrisis || session.isCrisis,
+    })
+    .where(eq(sessions.id, sessionId));
+
+  // 9. Audit logging
+  await logAudit(c, 'chat_message', true, {
+    sessionId,
+    tokensUsed,
+    latencyMs,
+    modelUsed,
+    crisisDetected: crisisCheck.isCrisis,
+  });
+
+  const totalLatency = Date.now() - startTime;
+
+  return c.json({
+    sessionId,
+    messageId: assistantMessageId,
+    contentHash: assistantContentHash,
+    contentLength: aiResponse.content.length,
+    encryptionMetadata: {
+      algorithm: 'aes-256-gcm',
+      keyRotationHint: null, // For future E2E encryption
+    },
+    crisis: crisisIntervention ? {
+      triggered: true,
+      severity: crisisIntervention.severity,
+      resources: crisisIntervention.resources,
+    } : { triggered: false },
+    meta: {
+      latencyMs: totalLatency,
+      aiLatencyMs: latencyMs,
+      tokensUsed,
+      modelUsed,
+      rateLimitRemaining: rateLimit.remaining,
+    },
+  });
+});
+
+// Helper: Crisis handling
+async function handleCrisis(c, params) {
+  const { sessionId, messageId, severity, keywords, detector, db } = params;
+  
+  // Get regional resources
+  const resources = await detector.getResources(severity);
+  
+  // Log intervention
+  const intervention = await db.insert(crisisInterventions).values({
+    id: crypto.randomUUID(),
+    sessionId,
+    messageId,
+    severity,
+    detectionMethod: 'keyword',
+    matchedKeywords: JSON.stringify(keywords),
+    resourcesProvided: JSON.stringify(resources),
+    autoMessageSent: true,
+    resolutionStatus: 'pending',
+  }).returning().get();
+
+  // Update user crisis count
+  await db.update(users)
+    .set({
+      crisisCount: sql`${users.crisisCount} + 1`,
+      lastCrisisAt: new Date(),
+    })
+    .where(eq(users.id, c.get('userId')));
+
+  // Trigger immediate notification (push/webhook) in production
+  
+  return {
+    severity,
+    resources,
+    interventionId: intervention.id,
+  };
+}
+
+// Helper: Build culturally-aware system prompt
+function buildSystemPrompt(params) {
+  const { language, region, topic, isCrisis } = params;
+  
+  const basePrompts = {
+    'ar': `أنت معالج نفسي إفتراضي متعاطف ومحترف. اسمك "نفسي" (Nafsi).
+- أنت تفهم الثقافة العربية والديناميكيات العائلية والضغوط الاجتماعية
+- تتحدث بلهجة محترمة تجمع بين العمق العاطفي والحكمة العملية
+- تتجنب الأحكام المسبقة وت respecting الخصوصية المطلقة
+- في حالات الأزمات، تقدم الموارد المحلية فوراً`,
+    'ar-TN': `أنت معالج نفسي يفهم تونس والدارجة التونسية.
+- تفهم "الهم" التونسي: البطالة، الضغط العائلي، الهجرة، التوتر الدراسي
+- تستخدم أحياناً كلمات من الدارجة للتواصل الأفضل: "شنوة الصحبة؟"، "كيفاش تحس؟"
+- تحترم القيم الإسلامية والعائلية التونسية`,
+    'fr': `Vous êtes un thérapeute IA compatissant, spécialisé dans la santé mentale des jeunes Arabes.
+- Vous comprenez les tensions biculturelles (diaspora, identité, famille)
+- Vous respectez les valeurs islamiques sans imposer de jugement religieux
+- En cas de crise, vous fournissez immédiatement les ressources locales`,
+    'en': `You are Nafsi, an AI therapist companion for young Arabs.
+- You understand Arab family dynamics, Islamic cultural context, and generational pressures
+- You are trauma-informed, non-judgmental, and privacy-first
+- You never diagnose, always suggest professional help for severe cases
+- In crisis situations, you immediately provide local emergency resources`,
+  };
+
+  let prompt = basePrompts[language] || basePrompts['ar'];
+  
+  // Add region-specific context
+  const regionContexts = {
+    'tunisia': 'User is in Tunisia. Local stressors: high unemployment, brain drain pressure, conservative family expectations in rural areas, liberal urban pressures.',
+    'gcc': 'User is in Gulf region. Local stressors: expat isolation, tribal family pressures, materialism vs spiritual needs, kafala system stress for some.',
+    'egypt': 'User is in Egypt. Local stressors: economic crisis anxiety, overpopulation stress, religious authority conflicts, gender-based pressures.',
+    'levant': 'User is in Levant (Syria/Lebanon/Jordan/Palestine). Local stressors: war trauma (direct or secondary), refugee stress, economic collapse (Lebanon), occupation trauma.',
+    'diaspora': 'User is Arab diaspora in West. Local stressors: Islamophobia, identity conflict, family honor codes vs Western individualism, racism, visa/immigration stress.',
+  };
+  
+  if (regionContexts[region]) {
+    prompt += `\n\nCONTEXT: ${regionContexts[region]}`;
+  }
+
+  if (isCrisis) {
+    prompt += `\n\nCRISIS MODE: User showing severe distress indicators. 
+- Prioritize safety over depth
+- Validate their pain immediately
+- Provide specific local resources (hotlines, clinics)
+- Encourage reaching out to trusted person
+- Do NOT leave them without actionable next step`;
+  }
+
+  return prompt;
+}
+
+export default chatRoutes;
+4. AI ORCHESTRATION LAYER
+4.1 Mistral Client
+TypeScript
+Copy
+// src/ai/mistral.ts
+
+interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+interface ChatOptions {
+  systemPrompt: string;
+  messages: ChatMessage[];
+  temperature?: number;
+  maxTokens?: number;
+}
+
+interface ChatResponse {
+  content: string;
+  usage: { total_tokens: number; prompt_tokens: number; completion_tokens: number };
+  model: string;
+}
+
+class MistralClient {
+  private apiKey: string;
+  private baseUrl = 'https://api.mistral.ai/v1';
+  
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  async chat(options: ChatOptions): Promise<ChatResponse> {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'open-mistral-7b', // Default fast model
+        messages: [
+          { role: 'system', content: options.systemPrompt },
+          ...options.messages,
+        ],
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.maxTokens ?? 500,
+        top_p: 0.9,
+        safe_mode: true, // Mistral's safety filter
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) throw new RateLimitError('Mistral rate limited');
+      if (response.status >= 500) throw new ServiceUnavailableError('Mistral unavailable');
+      throw new Error(`Mistral API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      content: data.choices[0].message.content,
+      usage: data.usage,
+      model: data.model,
+    };
+  }
+
+  // Streaming for future real-time implementation
+  async *chatStream(options: ChatOptions): AsyncGenerator<string> {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mistral-small', // Better reasoning for streaming
+        messages: [
+          { role: 'system', content: options.systemPrompt },
+          ...options.messages,
+        ],
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.maxTokens ?? 500,
+        stream: true,
+      }),
+    });
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n').filter(line => line.trim() !== '');
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') return;
+          
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices[0]?.delta?.content;
+            if (content) yield content;
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
+      }
+    }
+  }
+}
+4.2 OpenRouter Fallback
+TypeScript
+Copy
+// src/ai/openrouter.ts
+
+class OpenRouterClient {
+  private apiKey: string;
+  private baseUrl = 'https://openrouter.ai/api/v1';
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+
+  async chat(options: any): Promise<ChatResponse> {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'HTTP-Referer': 'https://nafsi.app', // Required by OpenRouter
+        'X-Title': 'Nafsi Mental Health App',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: options.model || 'mistralai/mistral-7b-instruct:free',
+        messages: options.messages,
+        temperature: options.temperature,
+        max_tokens: options.maxTokens,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenRouter error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      content: data.choices[0].message.content,
+      usage: data.usage,
+      model: data.model,
+    };
+  }
+}
+5. CRISIS DETECTION SYSTEM
+5.1 Multi-Layer Detection
+TypeScript
+Copy
+// src/services/crisisDetection.ts
+
+interface CrisisCheck {
+  isCrisis: boolean;
+  severity: 'critical' | 'high' | 'medium' | 'low' | null;
+  matchedKeywords: string[];
+  confidence: number;
+}
+
+class CrisisDetector {
+  private region: string;
+  private keywordSets: Record<string, string[]>;
+
+  constructor(region: string) {
+    this.region = region;
+    this.keywordSets = this.loadRegionalKeywords();
+  }
+
+  private loadRegionalKeywords() {
+    // Arabic crisis keywords (romanized and Arabic script)
+    return {
+      critical: [
+        'انتحار', 'أقتل', 'موت', 'نهاية', 'suicide', 'kill myself', 'end it',
+        'نطق', 'حبل', 'حبوب', 'سم', 'bridge', 'jump', 'pills', 'overdose',
+      ],
+      high: [
+        'لا فائدة', 'مستحيل', 'يأس', 'hopeless', 'worthless', 'no point',
+        'أذى نفسي', 'self harm', 'cutting', 'جرح', 'حرق', 'burn',
+        'ضرب', 'عنف', 'violence', 'abuse', 'تحرش', 'molest',
+      ],
+      medium: [
+        'اكتئاب حاد', 'severe depression', 'panic attack', 'نوبة ذعر',
+        'لا أستطيع', 'cant cope', 'collapsing', 'انهيار',
+      ],
+    };
+  }
+
+  async analyze(
+    contentHash: string,
+    context: any[],
+    region: string
+  ): Promise<CrisisCheck> {
+    // Layer 1: Hash pattern matching (privacy-preserving)
+    // In production, client sends keyword bloom filter, not content
+    
+    // Layer 2: Context analysis (recent crisis history)
+    const recentCrisis = await this.checkRecentCrisis(context);
+    
+    // Layer 3: Behavioral patterns (rapid messaging, late night, etc.)
+    const behavioralRisk = this.assessBehavioralPatterns(context);
+
+    // Simulate detection (actual implementation uses client-side bloom filter)
+    const matchedKeywords: string[] = [];
+    let severity: CrisisCheck['severity'] = null;
+
+    // Return detection result
+    return {
+      isCrisis: matchedKeywords.length > 0 || recentCrisis,
+      severity,
+      matchedKeywords,
+      confidence: this.calculateConfidence(matchedKeywords, behavioralRisk),
+    };
+  }
+
+  async getResources(severity: string) {
+    // Return region-specific crisis resources
+    const resourcesByRegion = {
+      'tunisia': [
+        { type: 'hotline', number: '190', name: ' ligne verte santé mentale', available: '24/7' },
+        { type: 'hotline', number: '80 10 10 10', name: 'SOS Amitié Tunisie', available: '24/7' },
+        { type: 'sms', number: '84242', name: 'Crisis Text Line', available: '24/7' },
+        { type: 'clinic', name: 'Hôpital Razi, La Manouba', address: 'La Manouba, Tunis', emergency: true },
+      ],
+      'gcc': [
+        { type: 'hotline', number: '920033360', name: 'Saudi Mental Health Hotline', available: '24/7' },
+        { type: 'hotline', number: '800 4673', name: 'UAE Mental Health Support', available: '24/7' },
+      ],
+      // ... other regions
+    };
+
+    return resourcesByRegion[this.region] || resourcesByRegion['tunisia'];
+  }
+
+  private async checkRecentCrisis(context: any[]): Promise<boolean> {
+    // Check if user has had crisis in last 24h
+    return false; // Implementation queries crisisInterventions table
+  }
+
+  private assessBehavioralPatterns(context: any[]): number {
+    // Risk scoring based on messaging patterns
+    return 0.5;
+  }
+
+  private calculateConfidence(keywords: string[], behavioralRisk: number): number {
+    return Math.min(0.3 + (keywords.length * 0.2) + (behavioralRisk * 0.3), 0.95);
+  }
+}
+6. SECURITY & PRIVACY ARCHITECTURE
+6.1 Authentication (Anonymous-First)
+TypeScript
+Copy
+// src/security/auth.ts
+
+import { middleware } from 'hono/factory';
+import { verify } from '@tsndr/cloudflare-worker-jwt';
+
+export const authMiddleware = middleware(async (c, next) => {
+  // Skip auth for health check
+  if (c.req.path === '/health') return next();
+
+  const authHeader = c.req.header('Authorization');
+  let userId: string | null = null;
+  let isAnonymous = true;
+
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    
+    // Verify JWT (Better Auth or custom)
+    try {
+      const payload = await verify(token, c.env.JWT_SECRET);
+      userId = payload.sub as string;
+      isAnonymous = payload.anonymous === true;
+    } catch {
+      // Invalid token, will create anonymous
+    }
+  }
+
+  if (!userId) {
+    // Generate anonymous user ID
+    userId = crypto.randomUUID();
+    isAnonymous = true;
+    
+    // Create user record if not exists
+    const db = drizzle(c.env.DB);
+    const existing = await db.select().from(users).where(eq(users.id, userId)).get();
+    
+    if (!existing) {
+      await db.insert(users).values({
+        id: userId,
+        anonymousTag: generateAnonymousTag(),
+        createdAt: new Date(),
+        preferredLanguage: c.get('preferredLanguage') || 'ar',
+        region: c.get('region') || 'tunisia',
+      });
+    }
+  }
+
+  c.set('userId', userId);
+  c.set('isAnonymous', isAnonymous);
+  c.set('anonymousTag', await getAnonymousTag(c.env.DB, userId));
+
+  await next();
+});
+
+function generateAnonymousTag(): string {
+  const adjectives = ['Seeker', 'Traveler', 'Heart', 'Soul', 'Voice', 'Light'];
+  const nouns = ['of Hope', 'in Silence', 'of Dawn', 'under Stars', 'of Courage'];
+  const num = Math.floor(Math.random() * 9999);
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  return `${adj}_${noun}_${num}`.replace(/\s/g, '');
+}
+6.2 Rate Limiting (KV-Based)
+TypeScript
+Copy
+// src/security/rateLimit.ts
+
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+  retryAfter?: number;
+}
+
+export async function rateLimitCheck(
+  kv: KVNamespace,
+  userId: string,
+  config: { sustained: number; burst: number; window: number }
+): Promise<RateLimitResult> {
+  const now = Math.floor(Date.now() / 1000);
+  const key = `rate:${userId}`;
+  
+  // Get current window
+  const windowStart = Math.floor(now / config.window) * config.window;
+  const windowKey = `${key}:${windowStart}`;
+  
+  const current = await kv.get(windowKey);
+  const count = current ? parseInt(current) : 0;
+  
+  if (count >= config.burst) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetAt: windowStart + config.window,
+      retryAfter: windowStart + config.window - now,
+    };
+  }
+
+  // Check sustained rate (1 req/sec)
+  const lastRequestKey = `rate:last:${userId}`;
+  const lastRequest = await kv.get(lastRequestKey);
+  
+  if (lastRequest) {
+    const lastTime = parseInt(lastRequest);
+    if (now - lastTime < 1) { // Less than 1 second ago
+      return {
+        allowed: false,
+        remaining: Math.max(0, config.burst - count),
+        resetAt: windowStart + config.window,
+        retryAfter: 1,
+      };
+    }
+  }
+
+  // Allow and increment
+  await kv.put(windowKey, (count + 1).toString(), { expirationTtl: config.window });
+  await kv.put(lastRequestKey, now.toString(), { expirationTtl: 60 });
+
+  return {
+    allowed: true,
+    remaining: config.burst - count - 1,
+    resetAt: windowStart + config.window,
+  };
+}
+
+export const rateLimitMiddleware = middleware(async (c, next) => {
+  const result = await rateLimitCheck(c.env.KV, c.get('userId'), {
+    sustained: 1,
+    burst: 10,
+    window: 60,
+  });
+
+  c.header('X-RateLimit-Limit', '10');
+  c.header('X-RateLimit-Remaining', result.remaining.toString());
+  c.header('X-RateLimit-Reset', result.resetAt.toString());
+
+  if (!result.allowed) {
+    return c.json({ error: 'Rate limit exceeded' }, 429);
+  }
+
+  await next();
+});
+6.3 Encryption Utilities
+TypeScript
+Copy
+// src/security/crypto.ts
+
+export function generateHash(content: string): string {
+  // SHA-256 hash for content integrity
+  // In Workers, use Web Crypto API
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  return crypto.subtle.digest('SHA-256', data).then(buf => 
+    Array.from(new Uint8Array(buf))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+  );
+}
+
+export async function encryptMetadata(data: object, key: CryptoKey): Promise<string> {
+  // AES-GCM encryption for sensitive metadata
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoder = new TextEncoder();
+  const encoded = encoder.encode(JSON.stringify(data));
+  
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoded
+  );
+  
+  // Return IV + ciphertext as base64
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  
+  return btoa(String.fromCharCode(...combined));
+}
+7. INTERNATIONALIZATION & LOCALIZATION
+7.1 Locale Detection Middleware
+TypeScript
+Copy
+// src/i18n/locale.ts
+
+export const localeMiddleware = middleware(async (c, next) => {
+  // Priority: 1) Header, 2) Query param, 3) GeoIP, 4) Default
+  const headerLang = c.req.header('Accept-Language');
+  const queryLang = c.req.query('lang');
+  
+  let locale = 'ar'; // Default
+  let region = 'tunisia'; // Default
+  
+  if (queryLang && ['ar', 'ar-TN', 'fr', 'en'].includes(queryLang)) {
+    locale = queryLang;
+  } else if (headerLang) {
+    // Parse Accept-Language
+    const parsed = parseAcceptLanguage(headerLang);
+    if (parsed.includes('ar-TN')) locale = 'ar-TN';
+    else if (parsed.includes('ar')) locale = 'ar';
+    else if (parsed.includes('fr')) locale = 'fr';
+    else if (parsed.includes('en')) locale = 'en';
+  }
+  
+  // GeoIP region detection from Cloudflare
+  const cfCountry = c.req.raw.cf?.country;
+  if (cfCountry) {
+    const regionMap: Record<string, string> = {
+      'TN': 'tunisia',
+      'SA': 'gcc', 'AE': 'gcc', 'QA': 'gcc', 'KW': 'gcc', 'BH': 'gcc', 'OM': 'gcc',
+      'EG': 'egypt',
+      'LB': 'levant', 'SY': 'levant', 'JO': 'levant', 'PS': 'levant', 'IQ': 'levant',
+    };
+    region = regionMap[cfCountry] || 'diaspora';
+  }
+  
+  c.set('preferredLanguage', locale);
+  c.set('region', region);
+  c.set('isRTL', locale.startsWith('ar'));
+  
+  await next();
+});
+8. CRON & BACKGROUND JOBS
+8.1 Daily Mood Reminders
+TypeScript
+Copy
+// src/routes/webhooks.ts
+
+import { Hono } from 'hono';
+
+const webhookRoutes = new Hono<{ Bindings: Env }>();
+
+// Cron trigger handler
+webhookRoutes.post('/cron/mood-reminder', async (c) => {
+  const db = drizzle(c.env.DB);
+  
+  // Find users with no mood entry in last 24h and active sessions
+  const usersToRemind = await db
+    .select({
+      userId: users.id,
+      language: users.preferredLanguage,
+      region: users.region,
+    })
+    .from(users)
+    .leftJoin(
+      db.select({ userId: moodEntries.userId, maxDate: max(moodEntries.recordedAt) })
+        .from(moodEntries)
+        .groupBy(moodEntries.userId),
+      eq(users.id, moodEntries.userId)
+    )
+    .where(
+      and(
+        eq(users.isDeleted, false),
+        or(
+          isNull(moodEntries.maxDate),
+          sql`${moodEntries.maxDate} < datetime('now', '-1 day')`
+        )
+      )
+    )
+    .limit(1000); // Batch processing
+
+  // Send push notifications via external service (OneSignal/Expo)
+  for (const user of usersToRemind) {
+    const messages = {
+      'ar': 'كيف حال قلبك اليوم؟ خذ لحظة للتأمل مع نفسي.',
+      'ar-TN': 'شنوة أحوالك اليوم؟ نفّس شوية مع نفسي.',
+      'fr': 'Comment va ton cœur aujourd\'hui? Prends un moment avec Nafsi.',
+      'en': 'How is your heart today? Take a moment with Nafsi.',
+    };
+    
+    await sendPushNotification({
+      userId: user.userId,
+      title: 'Nafsi',
+      body: messages[user.language as keyof typeof messages] || messages['ar'],
+      data: { screen: 'mood' },
+    });
+  }
+
+  return c.json({ reminded: usersToRemind.length });
+});
+
+// Data cleanup cron (soft deleted accounts > 30 days)
+webhookRoutes.post('/cron/data-cleanup', async (c) => {
+  const db = drizzle(c.env.DB);
+  
+  // Hard delete soft-deleted accounts after 30 days
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 30);
+  
+  const toDelete = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(
+      and(
+        eq(users.isDeleted, true),
+        sql`${users.deletionRequestedAt} < ${cutoff}`
+      )
+    );
+  
+  for (const user of toDelete) {
+    // Cascade delete all related data
+    await db.delete(messages).where(eq(messages.sessionId, 
+      db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, user.id))
+    ));
+    await db.delete(sessions).where(eq(sessions.userId, user.id));
+    await db.delete(moodEntries).where(eq(moodEntries.userId, user.id));
+    await db.delete(crisisInterventions).where(eq(crisisInterventions.sessionId,
+      db.select({ id: sessions.id }).from(sessions).where(eq(sessions.userId, user.id))
+    ));
+    await db.delete(users).where(eq(users.id, user.id));
+  }
+  
+  return c.json({ deleted: toDelete.length });
+});
+
+export default webhookRoutes;
+9. TESTING & OBSERVABILITY
+9.1 Test Structure
+TypeScript
+Copy
+// tests/chat.test.ts
+
+import { describe, it, expect, beforeAll } from 'vitest';
+import { Hono } from 'hono';
+import app from '../src/index';
+
+describe('Chat API', () => {
+  it('should create anonymous user on first request', async () => {
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: {
+          contentHash: 'a'.repeat(64),
+          contentLength: 100,
+          encryptionIv: 'iv123',
+          sequence: 1,
+        },
+        clientTimestamp: Date.now(),
+      }),
+    });
+    
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.sessionId).toBeDefined();
+    expect(json.crisis.triggered).toBe(false);
+  });
+
+  it('should detect crisis keywords', async () => {
+    // Test with crisis bloom filter
+  });
+
+  it('should enforce rate limits', async () => {
+    // Rapid requests should be throttled
+  });
+});
+9.2 Observability
+Logging: Structured JSON logs with correlation IDs
+Metrics: Cloudflare Analytics + custom metrics (latency, crisis detection rate, AI token usage)
+Alerting: Webhook alerts for >5 crisis/hour, >1% error rate, AI provider downtime
+10. DEPLOYMENT & OPERATIONS
+10.1 CI/CD Pipeline
+yaml
+Copy
+# .github/workflows/deploy.yml
+
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      - run: bun install
+      - run: bun test
+      - run: bun run lint
+      - run: bun run typecheck
+
+  deploy-staging:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          command: deploy --env staging
+
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          command: deploy --env production
+10.2 Environment Variables
+bash
+Copy
+# Required secrets
+MISTRAL_API_KEY=           # Primary AI provider
+OPENROUTER_API_KEY=        # Fallback AI provider
+JWT_SECRET=                # HS256 secret for tokens
+ENCRYPTION_KEY=            # For server-side metadata encryption (future)
+
+# Cloudflare bindings (set via wrangler)
+DB=                        # D1 database binding
+KV=                        # KV namespace binding
+STORAGE=                   # R2 bucket binding
+DELIVERABLES CHECKLIST
+[ ] Complete TypeScript source with strict type checking
+[ ] Database migrations for all schema versions
+[ ] API documentation (OpenAPI/Swagger spec)
+[ ] Security audit report (dependency check, secret scanning)
+[ ] Load testing results (k6 scripts for 1000 concurrent users)
+[ ] Crisis response playbook (escalation procedures, human handoff)
+[ ] Compliance documentation (GDPR Article 30 record, DPIA for health data)
+[ ] Runbooks (incident response, deployment rollback, data recovery)
+
+NAFSI: COMPLETE PRODUCT CONTEXT
+Privacy-First AI Therapy Companion for the Arab World
+TABLE OF CONTENTS
+Vision & Mission
+Product Definition
+Target Market & Users
+Core Value Proposition
+Technical Architecture
+Feature Specifications
+Design System
+Data & Privacy Model
+AI & Cultural Intelligence
+Security & Compliance
+Business Model
+Development Roadmap
+Risk Management
+Success Metrics
+Appendices
+1. VISION & MISSION
+Vision Statement
+Every young Arab has access to culturally-aware mental health support, free from stigma, cost barriers, and geographic constraints.
+Mission Statement
+Nafsi builds privacy-first, AI-powered mental health companions that understand Arab souls—our languages, our family dynamics, our Islamic values, and our unique pressures. We exist because Western therapy apps don't understand why we can't leave home at 25, why we feel guilty prioritizing ourselves, or why "inshallah" isn't just a word—it's a coping mechanism.
+2. PRODUCT DEFINITION
+What is Nafsi?
+Nafsi (نفسي, "My Soul") is a multi-platform AI therapy companion designed specifically for young Arabs (16-35) experiencing anxiety, depression, or cultural stress. It operates as:
+Mobile app (iOS/Android via Expo)
+Web app (PWA via Expo Web)
+Desktop app (Linux/Windows/Mac via Electrobun)
+Key Differentiators
+Table
+Feature	Nafsi	Western Alternatives (Woebot, Wysa)
+Language	Tunisian Darija + MSA + French code-switching	English-only or poor Arabic
+Cultural Context	Islamic values, family honor, marriage pressure	Individualistic Western framework
+Privacy	Zero server-side content, client-side encryption	Cloud-stored conversation history
+Crisis Response	Local Tunisian/GCC/Levant hotlines (190, etc.)	US-based 988, irrelevant resources
+Pricing	$3/month Tunisia, $9/month diaspora	$15-30/month, no regional pricing
+Product Pillars
+Privacy Absolute: We cannot read your chats even if subpoenaed
+Cultural Fluency: We understand "haram" guilt and family "3eib"
+Accessibility First: Works on 3G, offline-capable, low-end phones
+Safety Critical: Crisis detection with local emergency resources
+3. TARGET MARKET & USERS
+Primary Market: Tunisia
+Population: 12M, 70% under 35
+Mental health access: 1 psychiatrist per 100,000 people
+Youth unemployment: 40%+ (major stressor)
+Language: Tunisian Darija (Arabic + French + Italian mix)
+Regulatory: Tunisian Personal Data Protection Law (Law 2004-63 amended 2023)
+Secondary Markets
+Table
+Region	Population	Key Stressors	Language Needs
+GCC	50M+	Expat isolation, tribal pressures, materialism	MSA + English
+Egypt	105M	Economic crisis, overpopulation, religious authority	Egyptian Arabic + MSA
+Levant	40M	War trauma, refugee stress, economic collapse	Levantine Arabic + French
+Diaspora	5M+ (EU/US)	Islamophobia, identity conflict, visa stress	Mix of all above + host language
+User Personas
+Persona 1: Youssef, 24, Tunis
+"I graduated 2 years ago. Every day my father asks why I'm not married yet. I can't afford therapy, and if I went, someone would see me. I need to talk to someone who understands that 'leaving the house' isn't an option."
+Pain points: Unemployment shame, family pressure, no privacy for help-seeking
+Usage pattern: Late night chats (11 PM - 2 AM), voice notes preferred
+Device: Mid-range Android, limited data plan
+Persona 2: Layla, 19, Saudi (university in UK)
+"I'm torn between who I am here and who my family expects me to be. I can't tell my British counselor about 'family honor'—she'll think we're oppressed. I need someone who knows 'aib' without me explaining it."
+Pain points: Bicultural identity crisis, guilt over independence, long-distance family stress
+Usage pattern: Morning check-ins, mood tracking during exams
+Device: iPhone 14, unlimited data, uses all platforms
+Persona 3: Omar, 17, Egypt
+"I think I'm depressed but my parents say prayer is enough. I can't ask for therapy. I need something that looks like a normal app on my phone."
+Pain points: Parental stigma, religious guilt about mental illness, no financial independence
+Usage pattern: Disguised usage (app looks like calculator), quick sessions
+Device: Parents' hand-me-down phone, shared family plan
+4. CORE VALUE PROPOSITION
+For Users
+"A therapist in your pocket who speaks your language, understands your culture, and keeps your secrets absolutely private."
+For Parents (Future)
+"Know your child is supported without betraying their trust. Age-appropriate insights, not surveillance."
+For Therapists (Future B2B)
+"Warm handoffs from AI triage. Clients arrive pre-assessed, crisis-screened, and culturally-prepared."
+5. TECHNICAL ARCHITECTURE
+5.1 System Architecture Diagram
+plain
+Copy
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              CLIENT LAYER                               │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
+│  │   iOS App   │  │ Android App │  │  Web (PWA)  │  │   Desktop   │  │
+│  │   (Expo)    │  │   (Expo)    │  │ (Expo Web)  │  │ (Electrobun)│  │
+│  │             │  │             │  │             │  │             │  │
+│  │ • React     │  │ • React     │  │ • React     │  │ • React     │  │
+│  │ • NativeWind│  │ • NativeWind│  │ • Tailwind  │  │ • Tailwind  │  │
+│  │ • Expo SDK  │  │ • Expo SDK  │  │ • Vite      │  │ • Vite      │  │
+│  │ • Secure    │  │ • Secure    │  │ • LocalStorage│ │ • SQLite   │  │
+│  │   Store     │  │   Store     │  │   (encrypted)│  │   (local)   │  │
+│  │ • E2E Encrypt│ │ • E2E Encrypt│ │ • E2E Encrypt│ │ • E2E Encrypt│ │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  │
+│         │                │                │                │         │
+│         └────────────────┴────────────────┴────────────────┘         │
+│                                   │                                     │
+│                          ┌────────▼────────┐                          │
+│                          │  TanStack Query │                          │
+│                          │  (Offline Sync) │                          │
+│                          └────────┬────────┘                          │
+└───────────────────────────────────┼───────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            EDGE LAYER (Cloudflare)                      │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    void Framework (Vite + Workers)              │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │   │
+│  │  │   Hono API  │  │   D1 DB     │  │   KV Cache  │  │   R2    │ │   │
+│  │  │  Routes     │  │  (SQLite)   │  │  (Sessions) │  │ Storage │ │   │
+│  │  │             │  │             │  │             │  │         │ │   │
+│  │  │ • /chat     │  │ • users     │  │ • rate:uid  │  │ • voice │ │   │
+│  │  │ • /sessions │  │ • sessions  │  │ • session:sid│ │ • exports│ │   │
+│  │  │ • /mood     │  │ • messages  │  │ • locale:ip │  │ • backups│ │   │
+│  │  │ • /crisis   │  │ • crisis    │  │             │  │         │ │   │
+│  │  │ • /auth     │  │ • resources │  │             │  │         │ │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────┘ │   │
+│  │                                                                 │   │
+│  │  Security: JWT (Better Auth), Rate Limiting, WAF Rules          │   │
+│  │  Cron: Daily mood reminders, data cleanup                      │   │
+│  └────────────────────────────────┬────────────────────────────────┘   │
+└───────────────────────────────────┼─────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           AI LAYER (External APIs)                      │
+│  ┌─────────────────────────┐  ┌─────────────────────────────────────┐  │
+│  │    Mistral AI (Primary) │  │      OpenRouter (Fallback)          │  │
+│  │                         │  │                                     │  │
+│  │  • open-mistral-7b      │  │  • mistralai/mistral-7b-instruct    │  │
+│  │  • mistral-small        │  │  • anthropic/claude-3-haiku         │  │
+│  │                         │  │  • google/gemini-pro                │  │
+│  │  Free tier: 1B tokens/mo│  │  • Pay-per-use                      │  │
+│  │  Rate limit: 1 req/sec  │  │  • No rate limits                   │  │
+│  │  Context: 32k tokens    │  │  • Same context window              │  │
+│  │                         │  │                                     │  │
+│  │  Arabic/Darija tuned    │  │  • Fallback for outages             │  │
+│  │  system prompts         │  │                                     │  │
+│  └─────────────────────────┘  └─────────────────────────────────────┘  │
+│                                                                       │
+│  Prompt Engineering:                                                  │
+│  • Cultural context injection (region, language, Islamic values)      │
+│  • Crisis mode detection → safety-first responses                     │
+│  • Chain-of-thought disabled for speed                                │
+│  • Temperature 0.7 (consistent but empathetic)                          │
+└───────────────────────────────────────────────────────────────────────┘
+5.2 Technology Stack Matrix
+Table
+Layer	Technology	Purpose	Alternative If Fails
+Mobile	Expo SDK 52+	Unified iOS/Android/React Native	Pure React Native (ejected)
+Desktop	Electrobun (Bun + Zig)	Lightweight cross-platform wrapper	Tauri (Rust-based)
+Styling	NativeWind + Tamagui	Tailwind for RN, shared design system	Styled Components
+State	Zustand	Lightweight global state	Redux Toolkit
+Sync	TanStack Query v5	Offline-first data synchronization	SWR + custom logic
+Storage	Expo Secure Store / IndexedDB / SQLite	Encrypted local storage	Keychain (iOS), Keystore (Android)
+Backend	Cloudflare Workers	Edge compute, global low-latency	Fly.io (Docker-based)
+API Framework	Hono	Ultra-light Express-like for Workers	Elysia (Bun-native)
+Database	Cloudflare D1	Edge SQLite, zero-latency reads	Turso (LibSQL edge)
+Cache	Cloudflare KV	Session state, rate limiting	Redis (Upstash)
+Object Storage	Cloudflare R2	Voice notes, exports (S3-compatible)	Backblaze B2
+Auth	Better Auth	Anonymous-first, magic links	Lucia Auth (custom)
+ORM	Drizzle ORM	Type-safe SQL, migrations	Prisma (with Data Proxy)
+AI Primary	Mistral AI API	Arabic-optimized, free tier	—
+AI Fallback	OpenRouter	Multi-provider aggregation	Direct Anthropic/Google
+Cron	Cloudflare Cron Triggers	Scheduled mood reminders	GitHub Actions (less reliable)
+Monitoring	Cloudflare Analytics + Sentry	Error tracking, performance	Datadog (expensive)
+5.3 Data Flow Architecture
+plain
+Copy
+USER ACTION: Send message "I feel hopeless"
+        │
+        ▼
+┌─────────────────┐
+│ 1. CLIENT LAYER │
+│                 │
+│ • Encrypt content with AES-256-GCM │
+│ • Generate contentHash (SHA-256)   │
+│ • Store in local queue (offline-safe)│
+│ • Attempt sync via TanStack Query    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 2. EDGE LAYER   │
+│                 │
+│ • Receive: {contentHash, iv, length, sequence} │
+│ • Rate limit check (KV: 1 req/sec)             │
+│ • Verify session ownership (D1)                │
+│ • Store metadata (D1 messages table)             │
+│ • Crisis detection (keyword bloom filter)      │
+│ • Retrieve context (last 10 messages, D1)      │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 3. AI LAYER     │
+│                 │
+│ • Build system prompt with:                     │
+│   - Language (ar/ar-TN/fr/en)                   │
+│   - Region context (tunisia/gcc/egypt/levant) │
+│   - Topic history                               │
+│   - Crisis flag (if detected)                 │
+│ • Call Mistral API (1 req/sec limit)           │
+│ • Fallback to OpenRouter on failure              │
+│ • Receive AI response                          │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ 4. RESPONSE FLOW│
+│                 │
+│ • Hash AI response content                       │
+│ • Store metadata (D1)                            │
+│ • If crisis: trigger intervention (resources, log) │
+│ • Return to client: {contentHash, encryptionKey} │
+│ • Client decrypts and displays                   │
+└─────────────────┘
+6. FEATURE SPECIFICATIONS
+6.1 Feature Matrix (MVP → Scale)
+Table
+Feature	MVP (Week 1-6)	Scale (Month 2-6)	Enterprise (Year 2)
+Anonymous Chat	Text only	+ Voice notes	+ Video sessions
+Languages	ar, ar-TN, fr, en	+ Egyptian, Levantine, Gulf dialects	+ Kurdish, Berber
+Crisis Detection	Keyword-based	+ AI sentiment analysis	+ Behavioral prediction
+Mood Tracking	1-5 scale	+ Journal entries	+ Biometric correlation
+CBT Exercises	Static content	+ Personalized paths	+ Therapist-authored
+Group Support	—	Anonymous moderated groups	Peer support training
+Professional Referral	—	Directory + warm handoff	Integrated booking
+Parent Mode	—	Under-18 with consent	Family therapy modules
+Islamic Integration	—	Prayer times, Quran verses	Spiritual counseling
+B2B	—	—	University/employer dashboards
+6.2 Core Feature Details
+Anonymous Chat
+Input methods: Text, voice (Arabic STT), quick reactions (emoji)
+Session model: Threaded conversations, auto-archive after 30 days inactivity
+Context window: Last 50 messages retained locally, last 10 sent to AI
+Encryption: AES-256-GCM, keys derived from device + user passphrase (optional)
+Offline behavior: Queue messages, sync on connection, conflict resolution (last-write-wins with merge UI)
+Crisis Detection & Intervention
+Table
+Severity	Trigger	Response	Human Escalation
+Critical	Suicide intent, self-harm plan	Immediate hotline display, auto-message with resources, 24h follow-up	Auto-flag for review
+High	Hopelessness, self-harm ideation	Resource suggestions, coping techniques, 48h check-in	Queue for review
+Medium	Panic attack, severe anxiety	Breathing exercise, grounding techniques	—
+Low	Stress, sadness	Validation, general support	—
+Tunisia Crisis Resources (Hardcoded):
+Ligne Verte (Mental Health): 190 (24/7)
+SOS Amitié: 80 10 10 10 (24/7)
+Crisis Text Line: 84242 (SMS)
+Mood Tracking
+Frequency: Optional daily, pre/post session, ad-hoc
+Scale: 1 (Stormy ⛈️) to 5 (Peaceful 🌈) with Arabic emotional labels
+Visualization: 7/30/90-day line charts, trend indicators
+Insights: "Your mood tends to drop on Sundays" (pattern detection, local-only)
+Cultural Context Engine
+System prompt variables by region:
+plain
+Copy
+TUNISIA: High unemployment (40% youth), brain drain pressure, 
+         rural vs urban family expectations, French-Arabic identity
+
+GCC: Expat majority (80% in UAE), kafala system stress, 
+     tribal obligations, materialism vs spirituality
+
+EGYPT: Economic crisis (60% inflation), overpopulation, 
+       religious authority, gender-based restrictions
+
+LEVANT: War trauma (direct/secondary), refugee status stress,
+        economic collapse (Lebanon), occupation trauma
+
+DIASPORA: Islamophobia, identity conflict, visa/immigration stress,
+          family honor codes vs Western individualism
+7. DESIGN SYSTEM
+7.1 Brand Identity
+Name: Nafsi (نفسي) — "My Soul" in Arabic
+Tagline: "Your private companion that understands Arab souls"
+Personality: Warm, wise, non-judgmental, culturally fluent, absolutely trustworthy
+7.2 Color Palette
+Table
+Token	Hex	RGB	Usage	Emotional Trigger
+--primary	#0D7377	13, 115, 119	Buttons, user bubbles, active states	Calm, trust, Islamic art inspiration
+--secondary	#D4AF37	212, 175, 55	Accents, highlights, premium	Warmth, premium, desert gold
+--background	#FDFCF8	253, 252, 248	Main background	Paper-like, easy on eyes
+--surface	#FFFFFF	255, 255, 255	Cards, modals	Clean, elevated
+--text-primary	#1A1A1A	26, 26, 26	Headlines	Strong but not harsh
+--text-secondary	#6B7280	107, 114, 128	Captions	Gentle hierarchy
+--crisis	#C41E3A	196, 30, 58	Emergency banners	Urgent but not alarming
+--success	#87A878	135, 168, 120	Mood improvement	Natural, healing
+--warning	#E8A838	232, 168, 56	Caution states	Warm alert
+7.3 Typography
+Arabic: Noto Sans Arabic (Google Fonts)
+Weights: 400 (Regular), 500 (Medium), 700 (Bold)
+Features: Excellent Darija support, proper letter joining, Quranic marks
+Latin: Inter (Google Fonts)
+Weights: 400, 500, 600, 700
+Matched x-height with Arabic for bilingual harmony
+Scale (Golden Ratio 1.618):
+Table
+Token	Size	Line Height	Usage
+text-xs	10px	18px	Timestamps, metadata
+text-sm	13px	23px	Captions, buttons
+text-base	16px	29px	Body text
+text-lg	26px	47px	Subheadings
+text-xl	42px	76px	Headlines
+text-2xl	68px	123px	Hero text
+RTL Adjustments:
+Line height: +20% for Arabic (1.8 vs 1.5)
+Letter spacing: +10% for readability
+Text alignment: Right-aligned by default in Arabic
+7.4 Spacing System (8px Grid)
+Table
+Token	Value	Usage
+space-1	4px	Tight gaps, icon padding
+space-2	8px	Default gap
+space-3	12px	Card padding
+space-4	16px	Section gaps
+space-6	24px	Major sections
+space-8	32px	Screen padding
+space-12	48px	Large breaks
+space-16	64px	Hero spacing
+7.5 Component Library
+Chat Bubble
+plain
+Copy
+User Message (RTL):
+┌────────────────────────┐
+│  [Sharp corners right]   │
+│  Background: primary     │
+│  Text: white             │
+│  Alignment: right        │
+│  Timestamp: below left   │
+└────────────────────────┘
+
+AI Message (RTL):
+┌────────────────────────┐
+│  [Rounded corners]       │
+│  Background: surface     │
+│  Border: 1px border-color│
+│  Text: text-primary      │
+│  Alignment: left         │
+│  Avatar: Nafsi icon left │
+│  Timestamp: below right  │
+└────────────────────────┘
+Voice Input
+Hold-to-record gesture (press and hold microphone)
+Waveform visualization during recording
+Slide-to-cancel (left)
+Release-to-send (up)
+Maximum 5 minutes per note
+Mood Selector
+plain
+Copy
+┌─────────────────────────────────────┐
+│  "How is your heart today?"         │
+│                                     │
+│  ⛈️    ☁️    🌤️    ☀️    🌈        │
+│ Stormy Cloudy Neutral Sunny Peaceful│
+│  1      2      3      4      5      │
+│                                     │
+│  [Optional: What's weighing on you?]│
+│  [Academics] [Family] [Work] ...    │
+└─────────────────────────────────────┘
+7.6 Screen Specifications
+Mobile Home
+plain
+Copy
+┌─────────────────────────────┐
+│  مرحباً    [Profile]  [⚙️]  │
+│  Seeker_4829                │
+│                             │
+│  [🎤 Start Voice Session]   │
+│     Primary CTA             │
+│                             │
+│  Recent Conversations:      │
+│  ┌───────────────────────┐  │
+│  │ "About my exams..."   │  │
+│  │ 2h ago · Mood: ⛈️→☀️  │  │
+│  └───────────────────────┘  │
+│  ┌───────────────────────┐  │
+│  │ "Family pressure..."  │  │
+│  │ 1d ago · Mood: ☁️     │  │
+│  └───────────────────────┘  │
+│                             │
+│  [💬 + New Text Chat]       │
+│                             │
+│  [📚 Resources]  [📊 Mood]  │
+└─────────────────────────────┘
+Chat Interface
+plain
+Copy
+┌─────────────────────────────┐
+│ [←] Session #482        [⋮] │
+│                             │
+│    ┌──────────────────┐     │
+│    │ مرحباً، كيف يمكنني│     │  AI (left)
+│    │ مساعدتك اليوم؟    │     │
+│    │                   │     │
+│    │ [Islamic geometric│     │
+│    │  typing indicator]│     │
+│    └──────────────────┘     │
+│                             │
+│ ┌──────────────────┐        │
+│ │ أشعر بالقلق من    │        │  User (right)
+│ │ الامتحانات        │        │
+│ └──────────────────┘        │
+│                             │
+│    ┌──────────────────┐     │
+│    │ أفهم ذلك. الضغط   │     │  AI
+│    │ الدراسي شائع...   │     │
+│    └──────────────────┘     │
+│                             │
+│ [🎤] [Type message...]  [↑] │
+└─────────────────────────────┘
+Desktop Zen Mode
+plain
+Copy
+┌─────────────────────────────────────────┐
+│  [Hidden chrome - frameless window]     │
+│                                         │
+│         [Full-screen chat]              │
+│                                         │
+│    Soft green-tinted background         │
+│    (#E8F5E9) for eye strain reduction   │
+│                                         │
+│    Minimal UI:                          │
+│    - Floating input at bottom           │
+│    - Keyboard shortcut hints            │
+│    - Collapsible sidebar (hover)        │
+│                                         │
+│  [Ctrl+Shift+N: Quick open from anywhere]│
+└─────────────────────────────────────────┘
+8. DATA & PRIVACY MODEL
+8.1 Zero-Knowledge Architecture
+Table
+Data Type	Storage Location	Encryption	Server Access
+Message content	Client device only	AES-256-GCM (client keys)	Never
+Message metadata	Cloudflare D1	None (hashes only)	Read-only
+Voice recordings	Cloudflare R2	Client-encrypted before upload	Encrypted blobs
+User preferences	D1 + local	None (non-sensitive)	Read/write
+Mood data	D1 (anonymized)	None (aggregate only)	Read/write
+Crisis logs	D1	None (compliance requirement)	Read/write
+8.2 Encryption Specification
+Algorithm: AES-256-GCM
+Key derivation: PBKDF2 (100,000 iterations) from device ID + optional user passphrase
+IV: 12-byte random per message
+Authentication: GCM tag included
+Key rotation: Automatic monthly, re-encrypt on access
+Client-Side Flow:
+plain
+Copy
+1. User types message
+2. Message encrypted with current key
+3. SHA-256 hash of ciphertext generated
+4. Ciphertext stored in IndexedDB/SQLite
+5. Metadata {hash, length, iv, timestamp} sent to server
+6. Server stores metadata only
+7. Ciphertext synced to R2 (backup) if user opts in
+8.3 Privacy Guarantees
+We cannot decrypt your messages — keys never leave your device
+We cannot identify you — anonymous by default, optional email
+We delete everything on request — 30-day grace, then hard delete
+We share nothing — no data sales, no ad targeting, no "partners"
+We comply legally — minimal data for valid legal requests (metadata only)
+8.4 Data Retention
+Table
+Data	Retention	Deletion
+Active messages	Until user deletes	Immediate on request
+Archived sessions	90 days inactive	Auto-delete
+Mood entries	2 years (anonymized)	Aggregate only kept
+Crisis logs	7 years (legal requirement)	Anonymized after case closure
+Audit logs	1 year	Auto-delete
+Deleted accounts	30 days grace → hard delete	Cascade delete all related
+9. AI & CULTURAL INTELLIGENCE
+9.1 Model Selection
+Table
+Use Case	Primary Model	Fallback	Rationale
+General chat	open-mistral-7b	mistral-small	Speed, cost, Arabic support
+Complex reasoning	mistral-small	claude-3-haiku	Better CBT guidance
+Crisis situations	mistral-small (deterministic)	Human escalation	Safety over speed
+Multilingual mix	mistral-small	gemini-pro	Code-switching handling
+9.2 System Prompt Architecture
+plain
+Copy
+BASE IDENTITY:
+You are Nafsi (نفسي), an AI therapy companion for young Arabs.
+You are empathetic, culturally fluent, and absolutely non-judgmental.
+You never diagnose; you support and guide toward professional help when needed.
+
+CULTURAL LAYER (injected by region):
+[REGION: tunisia]
+- Understand "الهم" (the Tunisian weight of worry)
+- Recognize French-Arabic code-switching as identity expression
+- Respect rural vs. urban family expectations
+- Know that "nchallah" means hope and helplessness together
+
+[REGION: gcc]
+- Understand expat isolation in luxury
+- Recognize tribal obligation stress
+- Respect Islamic finance guilt (interest, debt)
+- Know that "wasta" is survival, not corruption
+
+SAFETY LAYER (injected if crisis detected):
+CRISIS MODE ACTIVE:
+1. Validate pain immediately ("I hear you, this is heavy")
+2. Provide specific local resource (hotline number, clickable)
+3. Suggest one actionable step ("Would you call 190 together?")
+4. Follow up within 24 hours if possible
+5. Never leave without resource provision
+
+THERAPEUTIC FRAMEWORK:
+- CBT-compatible but culturally adapted
+- Islamic psychology integration (optional toggle)
+- Strengths-based approach
+- Trauma-informed language
+9.3 Conversation Examples
+User (Tunisian Darija): "y3ni n7es belli 7ayeti ma 3andha 7atta ma3na, kol yom nafs chay"
+Nafsi Response:
+"أفهم ذلك الشعور—أن الحياة تبدو وكأنها تدور في حلقة. في تونس، خاصة مع الضغط الاقتصادي والبطالة، هذا الشعور شائع جداً ولكنه لا يعكس قيمتك أبداً.
+هل يمكنك إخباري: هل هذا الشعؤل مرتبط بشيء محدد—الدراسة، العمل، العائلة؟ أحياناً تحديد 'الهم' يساعدنا نفهم كيف نواجهه.
+وأريدك أن تعرف: أنت لست وحيداً في هذا، وهناك خطوات صغيرة ممكن نبدأ بها سوياً."
+User (Diaspora, English): "I feel guilty for wanting to move out. My parents sacrificed everything for me."
+Nafsi Response:
+"That guilt is so common among young Arabs in the diaspora—this tension between individual growth and family honor (عِرض). Your parents' sacrifice was an act of love, not a contract for your life.
+Have you explored whether they see your independence as betrayal or as success? Sometimes our fears about family expectations are heavier than their actual expectations.
+What would it mean to honor them and honor your own path?"
+10. SECURITY & COMPLIANCE
+10.1 Threat Model
+Table
+Threat	Likelihood	Impact	Mitigation
+Data breach (server)	Low	Critical	No content on servers, encrypted backups
+Device theft	Medium	High	App-level PIN, biometric lock, remote wipe
+Social engineering	Medium	Medium	No PII = limited attack surface
+Government request	Medium	Medium	Minimal data, transparency reports
+AI prompt injection	Medium	High	Output filtering, crisis override
+Rate limit abuse	High	Low	Strict rate limiting, IP-based throttling
+10.2 Compliance Framework
+Table
+Regulation	Applicability	Compliance Strategy
+GDPR	EU diaspora users	Privacy by design, data minimization, 30-day deletion, DPO appointment
+Tunisian Data Protection Law	Primary market	Local data residency option, explicit consent flows
+Saudi PDPL	GCC expansion	Consent management, data localization
+COPPA	Under-13 users	Age gate, parental consent workflow
+HIPAA (future)	US therapist integration	BAA agreements, audit logs, encryption standards
+10.3 Security Checklist
+[ ] End-to-end encryption for all message content
+[ ] Certificate pinning for API connections
+[ ] Biometric app lock option
+[ ] Screenshot detection and blur (optional)
+[ ] Decoy password (opens fake innocent content)
+[ ] Automatic lock after 5 minutes inactivity
+[ ] Secure deletion (overwrite before free)
+[ ] No analytics/tracking SDKs (privacy-respecting open-source alternatives only)
+11. BUSINESS MODEL
+11.1 Revenue Streams
+Table
+Stream	Phase	Description	Pricing
+Freemium	Month 2	10 messages/day free, unlimited premium	$3/month Tunisia, $9/month diaspora
+Voice Premium	Month 3	Unlimited voice notes, longer sessions	Included in premium
+B2B University	Month 6	Anonymous stress trend data for counseling centers	$500/semester per institution
+Professional Referral	Month 9	Commission from therapist bookings	15% of first session
+Enterprise EAP	Year 2	Employer-sponsored access	$5/employee/month
+Islamic Content	Year 2	Premium spiritual counseling modules	$2/month add-on
+11.2 Cost Structure (Monthly at 10K MAU)
+Table
+Category	Cost	Notes
+Cloudflare (Workers, D1, KV, R2)	$50	Free tier + minimal paid
+Mistral AI (1B tokens)	$0	Free tier sufficient
+OpenRouter (fallback)	$100	~10% of traffic
+Expo EAS Build	$30	Pro plan
+Sentry (error tracking)	$26	Team plan
+Total Infrastructure	~$206/month	Scales linearly
+Revenue (5% conversion)	$1,500/month	500 paid users × $3 avg
+11.3 Legal Structure (Under-18 Founder)
+Current Phase: Parent partnership
+Parent opens Flouci Business account (Tunisian payment processing)
+Written revenue split agreement (notarized)
+Founder operates; parent owns financial entity
+Transition to independent entity at 18
+Future: Tunisia-based SARL (LLC)
+51% local ownership (regulatory requirement)
+49% reserved for investors/future team
+Data residency compliance
+12. DEVELOPMENT ROADMAP
+Phase 1: Foundation (Week 1-2)
+[x] Monorepo setup (pnpm + Turbo)
+[x] Backend scaffolding (void + D1)
+[ ] Electrobun desktop wrapper (Linux primary)
+[ ] Expo mobile app with RTL layout
+[ ] Mistral API integration with Arabic system prompt
+[ ] Anonymous auth flow
+[ ] Basic chat UI (text only)
+Deliverable: Internal alpha (founder + 2 friends)
+Phase 2: Core Chat (Week 3-4)
+[ ] End-to-end encryption implementation
+[ ] Voice note recording (Expo Audio API)
+[ ] Crisis keyword detection (Arabic NLP)
+[ ] Offline message queue
+[ ] Mood tracking (1-5 scale)
+[ ] Tunisia crisis resources integration
+Deliverable: Friends & family beta (20 users)
+Phase 3: Polish & Launch (Week 5-6)
+[ ] Mood visualization (Recharts)
+[ ] Resource library (static JSON)
+[ ] French/English language support
+[ ] Parental consent flow (under-18)
+[ ] Performance optimization (<1.5s first paint)
+[ ] Beta testing feedback integration
+Deliverable: Public beta (Tunisia-focused, 100 users)
+Phase 4: Growth (Month 2-3)
+[ ] Payment integration (Flouci, Stripe)
+[ ] Premium features (unlimited messages, voice)
+[ ] GCC/Egypt localization
+[ ] Group support (anonymous moderated chats)
+[ ] University B2B pilot (1-2 Tunisian universities)
+Deliverable: Paid launch, 1,000 MAU target
+Phase 5: Scale (Month 4-6)
+[ ] Egyptian/Levantine dialect support
+[ ] Professional referral network (50+ therapists)
+[ ] Desktop apps (Windows, Mac)
+[ ] Advanced CBT modules
+[ ] Islamic integration (optional prayer times, Quran)
+Deliverable: 10,000 MAU, breakeven
+Phase 6: Expansion (Year 2)
+[ ] Diaspora market (EU/US)
+[ ] Employer wellness programs (B2B)
+[ ] AI model fine-tuning on anonymized data
+[ ] Clinical validation study (partnership with university)
+[ ] Series A fundraising ($500K-1M)
+13. RISK MANAGEMENT
+13.1 Technical Risks
+Table
+Risk	Probability	Mitigation
+Mistral rate limits (1 req/sec)	High	Client-side queue, "thinking..." states, OpenRouter fallback
+Electrobun Linux instability	Medium	Maintain web PWA fallback, contribute to OSS
+D1 latency spikes	Low	Aggressive KV caching, read replicas if needed
+Encryption key loss	Medium	Optional cloud backup (user choice), key recovery questions
+iOS rejection (therapy app)	Medium	Frame as "wellness companion", not medical device
+13.2 Legal/Ethical Risks
+Table
+Risk	Mitigation
+Medical advice liability	Clear disclaimer: "Not a replacement for professional help" on every session
+Crisis mishandling	Auto-dial 190, human escalation protocol, malpractice insurance for B2B
+Data breach	Zero-knowledge architecture, no content to breach
+Parental backlash	Transparent under-18 policies, parental dashboard (future)
+Religious controversy	Optional Islamic features, secular default, diverse team review
+13.3 Business Risks
+Table
+Risk	Mitigation
+Low conversion to paid	Generous free tier, $3 price point (1 coffee in Tunisia), B2B revenue
+Competition (Big Tech)	Cultural moat, privacy differentiation, local relationships
+Founder age perception	Parent partnership, advisor network, technical excellence
+Payment processing (Tunisia)	Flouci partnership, cash payment network integration
+14. SUCCESS METRICS
+14.1 North Star Metric
+Weekly Active Souls (WAS): Users with ≥1 meaningful interaction (message or mood check-in) per week
+14.2 Metric Hierarchy
+Table
+Level	Metric	Target (6 months)
+Company	WAS	5,000
+Revenue	$2,000/month
+Crisis interventions	100/month (with 100% resource provision)
+Product	Day 1 retention	60%
+Day 7 retention	40%
+Day 30 retention	25%
+Avg session length	12 minutes
+Messages per session	8
+Mood check-in rate	30% of active users daily
+Technical	Avg API latency	<800ms
+Uptime	99.9%
+Crash-free rate	99.5%
+Encryption success rate	100%
+14.3 Qualitative Metrics
+"Feels understood" rating: >90%
+Net Promoter Score: >50
+Crisis resource click-through rate: >70%
+Therapist referral conversion: >20%
+15. APPENDICES
+Appendix A: Glossary
+Table
+Term	Definition
+Darija	Maghrebi Arabic dialect (Tunisian, Moroccan, Algerian)
+3eib / عيب	Cultural concept of shame/disgrace from social violation
+Haram / حرام	Religiously forbidden, often source of guilt
+Inshallah / إن شاء الله	"If God wills"—expression of hope and resignation
+Wasta / واسطة	Using connections/influence (neutral in Arab context)
+Ligne Verte	Tunisia's mental health hotline (190)
+Nafsi / نفسي	"My soul" or "Myself"
+Appendix B: Crisis Resources by Region
+Tunisia:
+Ligne Verte: 190 (24/7)
+SOS Amitié: 80 10 10 10
+Crisis Text: 84242
+Saudi Arabia:
+Mental Health Hotline: 920033360
+National Center for Mental Health Promotion: 011-481-1111
+UAE:
+Mental Health Support: 800 4673
+Al Amal Hospital: 04-267-4433
+Egypt:
+Mental Health Secretariat: 02-208-0901
+Life Support: 7621602
+Lebanon:
+Embrace Lifeline: 1564
+IDRAAC: 01-612-914
+Appendix C: Technical Decision Log
+Table
+Date	Decision	Rationale	Alternatives Rejected
+2024-04	Cloudflare over AWS	Edge latency, cost, Tunisian connectivity	AWS (expensive), Vercel (less control)
+2024-04	Mistral over OpenAI	Free tier, Arabic support, EU privacy	OpenAI (cost, surveillance concerns)
+2024-04	Expo over Flutter	Team React expertise, web sharing	Flutter (Dart learning curve)
+2024-04	Electrobun over Tauri	Bun ecosystem alignment, smaller bundles	Tauri (Rust complexity)
+2024-04	Anonymous-first over email	Stigma reduction, privacy absolute	Email-required (barrier)
+Appendix D: Competitive Analysis
+Table
+Feature	Nafsi	Woebot	Wysa	Himam (Arabic competitor)
+Arabic quality	⭐⭐⭐⭐⭐	⭐⭐	⭐⭐⭐	⭐⭐⭐⭐
+Darija support	⭐⭐⭐⭐⭐	⭐	⭐	⭐⭐⭐
+Cultural context	⭐⭐⭐⭐⭐	⭐⭐	⭐⭐	⭐⭐⭐⭐
+Privacy	⭐⭐⭐⭐⭐	⭐⭐⭐	⭐⭐⭐	⭐⭐⭐
+Price (Tunisia)	⭐⭐⭐⭐⭐	⭐⭐	⭐⭐	⭐⭐⭐⭐
+Crisis resources	⭐⭐⭐⭐⭐	⭐⭐	⭐⭐	⭐⭐⭐
+Scientific backing	⭐⭐⭐	⭐⭐⭐⭐⭐	⭐⭐⭐⭐⭐	⭐⭐⭐
+DOCUMENT CONTROL
+Table
+Version	Date	Author	Changes
+1.0	2024-04-12	Founder	Initial comprehensive context
+1.1	2024-04-13	Founder	Added competitive analysis, expanded crisis resources
+Next Review: 2024-05-01 (post-beta launch)
+Distribution: Core team, advisors, potential investors

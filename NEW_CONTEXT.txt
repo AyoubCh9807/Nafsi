@@ -1,0 +1,164 @@
+Mental Clarity, Engineered
+1. EXECUTIVE SUMMARY
+Product Name: Nafsi (نفسي)
+Tagline: "Your mind, encrypted."
+Target Market: MENA region (Primary: Tunisia, Secondary: GCC, Egypt, Levant, Diaspora)
+User Persona: Young Arabs (16-35) who need mental health support but reject the "soft wellness" aesthetic of existing apps.
+The Problem:
+78% of young Arabs won't seek therapy due to stigma
+Western apps feel infantilizing (pastel colors, cartoon mascots, "vibes")
+No option exists for people who want serious mental health tools with serious design
+The Solution:
+A privacy-first, culturally-aware AI companion that looks and feels like a premium security tool or pro-grade software—not a diary with stickers.
+2. DESIGN PHILOSOPHY: "CONTROLLED ENERGY"
+Therapy requires stability. Modern users want vitality. The solution is deep, saturated bases with electric accents—not washed-out pastels.
+2.1 Color System
+Table
+Token	Hex	Usage	Psychology
+--void	#07070A	Background	Absolute depth, privacy, focus
+--void-light	#12121C	Cards, surfaces	Elevated hierarchy
+--void-elevated	#1E1E2E	Inputs, modals	Interactive layers
+--pulse-cyan	#00F5D4	Primary actions, user presence	Clarity, breath, digital-native trust
+--pulse-purple	#9B5DE5	AI presence, insights	Wisdom, creativity, mystery
+--pulse-coral	#F15BB5	Crisis, urgency, heart	Warmth under pressure
+--calm	#4361EE	Grounding exercises	Stability without dullness
+--growth	#06D6A0	Progress, streaks	Bioluminescent vitality
+--alert	#EF476F	True emergencies	Unmissable but not alarming
+--text-primary	#FFFFFF	Headlines	Maximum contrast
+--text-secondary	#B8B8D1	Body text	Readable, not muted
+--text-tertiary	#6E6E8A	Metadata	Present but subordinate
+The Rule: Darker than standard dark mode. Electric accents glow. No beige, no soft gradients, no "calming" pastels.
+2.2 Typography
+Latin: Satoshi or Inter Tight—geometric, tech-forward, tight tracking
+Arabic: IBM Plex Sans Arabic—sharp, modern, excellent Darija support
+Scale: Aggressive. 72px hero text. 16px base. No apologies.
+Hierarchy:
+plain
+Copy
+نفسي
+NAFSI
+Stacked, weight 800, cyan glow effect on dark.
+2.3 Visual Effects
+Glassmorphism: backdrop-filter: blur(20px), background: rgba(255,255,255,0.03), 1px white border at 10% opacity
+Neon Glows: box-shadow: 0 0 30px rgba(0, 245, 212, 0.15) on interactive elements
+Aurora Backgrounds: Animated mesh gradients (deep purple → cyan → black) for visual interest without clutter
+3. PRODUCT REQUIREMENTS
+3.1 Core Features (MVP)
+Table
+Feature	Description	Success Metric
+Encrypted Chat	E2E encrypted text conversations	<2s response time
+Voice Notes	Arabic speech-to-text, encrypted	85% transcription accuracy
+Crisis Detection	Keyword + pattern analysis, auto-resources	100% detection rate
+Mood Tracking	1-5 scale with radial slider (not emojis)	60% DAU engagement
+Offline-First	Local storage, sync when connected	Works without internet
+3.2 UI/UX Patterns
+Onboarding:
+No email required. Anonymous UUID.
+Single screen: "What brings you here?" with sharp, geometric topic tiles
+No soft illustrations. Abstract 3D shapes (glass spheres, iridescent planes).
+Chat Interface:
+RTL native (Arabic right-aligned)
+User bubbles: Solid --pulse-cyan, black text, sharp 8px corners, glow shadow
+AI bubbles: Glass effect (--void-elevated), --pulse-purple left border (3px), 16px corners
+Typing indicator: Waveform visualization (cyan bars), not dots
+Crisis mode: Full-screen --alert wash, white text, monospace typography for clinical precision
+Mood Check-in:
+Pre-chat: "How's your head?" (كيف راسك؟)
+Input: Radial slider with haptic feedback, cyan arc filling
+Visualization: 7/30/90-day line charts with --growth gradients
+Desktop (Electrobun):
+Frameless, 12px radius, drop shadow
+Zen Mode: Full-screen, --void background, floating input
+Global Shortcut: Ctrl+Shift+N instant chat
+No green tint. Dark. Focused.
+4. TECHNICAL ARCHITECTURE
+4.1 Stack (Unchanged Core)
+Table
+Layer	Technology	Purpose
+Mobile	Expo SDK 52+	iOS/Android
+Desktop	Electrobun	Linux/Win/Mac
+Backend	Cloudflare Workers	Edge compute
+Database	D1 (SQLite)	Metadata only
+AI	Mistral AI (primary) + OpenRouter (fallback)	Arabic-optimized
+Auth	Better Auth	Anonymous-first
+4.2 Privacy Model (Zero-Knowledge)
+Content: Never touches server unencrypted (AES-256-GCM, client-side keys)
+Server stores: Hashes, timestamps, tokens used—only metadata
+We cannot read chats even if subpoenaed
+30-day deletion on request, hard delete
+5. CULTURAL ENGINE
+5.1 Regional Context Injection
+Table
+Region	Stressors	Language Notes
+Tunisia	40% youth unemployment, brain drain, rural/urban divide	Darija + French code-switching, "الهم" (the weight)
+GCC	Expat isolation, tribal pressure, materialism vs spirituality	MSA + English, "wasta" as survival
+Egypt	Economic crisis, overpopulation, religious authority	Egyptian Arabic, "النفسية" (the psyche)
+Levant	War trauma, refugee stress, economic collapse	Levantine + French, "الوضع" (the situation)
+Diaspora	Islamophobia, identity conflict, visa stress	Code-switching, "3eib" in Western context
+5.2 AI Persona
+Name: Nafsi
+Voice: Direct, culturally fluent, non-judgmental. No "there there" soft talk.
+Framework: CBT-compatible, trauma-informed, Islamic psychology optional toggle.
+Example (Tunisian Darija):
+"y3ni n7es belli 7ayeti ma 3andha 7atta ma3na"
+Nafsi: "أفهم. في تونس، البطالة والضغط العائلي يخلينا نحس بالحبس. هذي مش ضعف—هذي ردة فعل طبيعية على وضع غير طبيعي. شنوة بالضبط يثقل عليك أكثر: العمل، العائلة، ولا شيء آخر؟"
+6. DEVELOPMENT ROADMAP
+Phase 1: Foundation (Week 1-2)
+[x] Monorepo (pnpm + Turbo)
+[x] Backend (void + D1)
+[ ] Expo mobile with dark native RTL
+[ ] Electrobun desktop wrapper
+[ ] Mistral integration with bold system prompts
+Phase 2: Core (Week 3-4)
+[ ] E2E encryption
+[ ] Voice notes (Expo Audio)
+[ ] Crisis detection (Arabic NLP)
+[ ] Offline queue
+[ ] Radial mood slider (not emojis)
+Phase 3: Polish (Week 5-6)
+[ ] Glassmorphism UI components
+[ ] Aurora background animations
+[ ] Tunisia crisis resources
+[ ] Performance (<1.5s first paint)
+[ ] Beta (100 users)
+Phase 4: Growth (Month 2-3)
+[ ] Payment (Flouci/Stripe)
+[ ] Premium: Unlimited voice, longer context
+[ ] GCC/Egypt localization
+[ ] 1,000 MAU target
+7. BUSINESS MODEL
+Table
+Stream	Phase	Pricing
+Freemium	Month 2	10 messages/day free, unlimited $3 (Tunisia) / $9 (diaspora)
+Voice Premium	Month 3	Included in premium
+B2B University	Month 6	$500/semester for anonymous trend data
+Professional Referral	Month 9	15% commission on therapist bookings
+Legal Structure: Parent partnership (Flouci Business account) → SARL at 18.
+8. RISK MITIGATION
+Table
+Risk	Mitigation
+Mistral rate limits	Client-side queue, OpenRouter fallback
+iOS rejection	Frame as "wellness companion," not medical device
+Data breach	Zero-knowledge: no content to breach
+Crisis mishandling	Auto-dial 190, human escalation protocol
+Founder age	Parent partnership, technical excellence
+9. SUCCESS METRICS
+Table
+Metric	Target (6 months)
+Weekly Active Souls	5,000
+Revenue	$2,000/month
+Crisis interventions	100/month (100% resource provision)
+Day 1 retention	60%
+Day 30 retention	25%
+Avg session length	12 minutes
+"Feels understood" rating	>90%
+10. KEY DIFFERENTIATORS
+Table
+Feature	Nafsi 2.0	Western Apps	Himam
+Aesthetic	Dark, electric, premium	Pastel, soft, "friendly"	Traditional, conservative
+Privacy	Zero-knowledge, encrypted	Cloud-stored	Moderate
+Arabic	Darija-native, code-switching	Poor MSA only	Good MSA
+Crisis	Local hotlines (190, etc.)	US 988	Regional but limited
+Price	$3/month Tunisia	$15-30/month	Free/ad-supported
+The Pitch:
+"Signal meets therapy. Encrypted, sleek, uncompromising. For young Arabs who need support but won't use an app that looks like a diary with stickers."

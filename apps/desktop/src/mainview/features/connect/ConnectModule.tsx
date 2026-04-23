@@ -95,7 +95,64 @@ function ConnectRoom() {
 function ConnectCreate() {
   const [location, setLocation] = useLocation();
   const base = location.startsWith("/nexus") ? "/nexus" : "/connect";
-  return <div className="p-8">Create Room Component... <button onClick={() => setLocation(base)}>Back</button></div>;
+  return (
+    <div className="h-full flex flex-col bg-void">
+      <Header title="Construct Space" leftIcon={<ChevronLeft />} onLeftClick={() => setLocation(base)} />
+      <div className="p-8 space-y-8 overflow-y-auto pb-32">
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-slate-500 px-1">Room Designation</label>
+            <input
+              className="w-full bg-surface-low border-b border-white/5 py-4 px-4 text-xl text-white focus:outline-none focus:border-pulse-purple transition-all"
+              placeholder="e.g. Deep Silence"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-slate-500 px-1">Category Core</label>
+            <div className="grid grid-cols-2 gap-2">
+              {["Growth", "Support", "Crisis", "Venting", "Quiet", "Work"].map(c => (
+                <button key={c} className="py-4 glass-panel text-[10px] font-black uppercase tracking-widest border-white/5 hover:border-pulse-purple transition-all active:scale-[0.98]">
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-slate-500 px-1">Privacy Layer</label>
+            <div className="glass-panel p-6 space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-white font-bold text-sm">Anonymous Only</p>
+                  <p className="text-[9px] text-slate-500 uppercase">Hide all user profiles</p>
+                </div>
+                <div className="w-10 h-5 bg-pulse-purple rounded-full p-0.5 flex justify-end">
+                  <div className="w-4 h-4 bg-void rounded-full" />
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-white font-bold text-sm">Self-Destruct</p>
+                  <p className="text-[9px] text-slate-500 uppercase">Wipe history every 24h</p>
+                </div>
+                <div className="w-10 h-5 bg-surface-low rounded-full p-0.5 flex justify-start">
+                  <div className="w-4 h-4 bg-slate-700 rounded-full" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setLocation(base)}
+          className="w-full py-6 bg-pulse-purple text-white font-black uppercase tracking-widest text-sm shadow-[0_0_40px_rgba(155,93,229,0.3)] transition-standard active-scale"
+        >
+          Initialize Space
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function RoomMessage({ user, text, isOwn }: { user: string, text: string, isOwn?: boolean }) {

@@ -15,11 +15,19 @@ import { getLogs } from "../../lib/db";
 import { Switch, Route, useLocation, Redirect } from "wouter";
 
 export function PulseModule() {
+    const [checkInData, setCheckInData] = useState({ tags: [] as string[], note: "" });
+
     return (
         <Switch>
-            <Route path="/pulse" component={PulseMain} />
-            <Route path="/pulse/tags" component={PulseTags} />
-            <Route path="/pulse/journal" component={PulseJournal} />
+            <Route path="/pulse">
+                <PulseMain />
+            </Route>
+            <Route path="/pulse/tags">
+                <PulseTags data={checkInData} onUpdate={(d) => setCheckInData(prev => ({ ...prev, ...d }))} />
+            </Route>
+            <Route path="/pulse/journal">
+                <PulseJournal data={checkInData} onUpdate={(d) => setCheckInData(prev => ({ ...prev, ...d }))} />
+            </Route>
             <Route path="/pulse/history" component={PulseHistory} />
             <Route path="/pulse/detail" component={PulseDetail} />
             <Route path="/pulse/export">
@@ -41,13 +49,13 @@ function PulseMain() {
                     <span className="text-on-surface-low uppercase tracking-[0.3em] text-[10px] font-black">Tap to Log Frequency</span>
                 </div>
 
-                <div className="relative w-72 h-72 flex items-center justify-center mb-12" onClick={() => setLocation("/pulse/tags")}>
-                    <div className="absolute inset-0 bg-pulse-cyan/5 rounded-full blur-3xl animate-pulse"></div>
+                <div className="relative w-72 h-72 flex items-center justify-center mb-12 cursor-pointer group" onClick={() => setLocation("/pulse/tags")}>
+                    <div className="absolute inset-0 bg-pulse-cyan/5 rounded-full blur-3xl group-hover:bg-pulse-cyan/10 transition-colors"></div>
                     <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/5" />
-                        <motion.circle initial={{ pathLength: 0 }} animate={{ pathLength: 0.74 }} transition={{ duration: 1.5 }} cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="4" className="text-pulse-cyan" strokeLinecap="round" strokeDasharray="283" />
+                        <motion.circle initial={{ pathLength: 0 }} animate={{ pathLength: 0.74 }} transition={{ duration: 1.5, ease: "easeOut" }} cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="4" className="text-pulse-cyan" strokeLinecap="round" strokeDasharray="283" />
                     </svg>
-                    <div className="flex flex-col items-center text-center z-10">
+                    <div className="flex flex-col items-center text-center z-10 transition-transform group-active:scale-95">
                         <span className="text-6xl font-display font-black text-pulse-cyan">74</span>
                         <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500">Stability Index</span>
                     </div>
@@ -68,8 +76,16 @@ function PulseMain() {
     );
 }
 
-function PulseTags() {
+function PulseTags({ data, onUpdate }: { data: any, onUpdate: (d: any) => void }) {
     const [, setLocation] = useLocation();
+
+    const toggleTag = (tag: string) => {
+        const next = data.tags.includes(tag)
+            ? data.tags.filter((t: string) => t !== tag)
+            : [...data.tags, tag];
+        onUpdate({ tags: next });
+    };
+
     return (
         <div className="screen-container justify-between">
             <div>
@@ -78,24 +94,41 @@ function PulseTags() {
                 <p className="text-on-surface-low font-arabic text-lg mb-8">شنوة اللي مأثر على المورال متاعك اليوم؟</p>
                 <div className="flex flex-wrap gap-3">
                     {["Work", "Family", "Health", "Social", "Solitude", "Sleep", "Food", "Exercise"].map(tag => (
-                        <button key={tag} className="px-6 py-3 glass-panel rounded-xl border-white/5 hover:border-pulse-cyan/40 transition-standard active-scale font-black uppercase text-[10px] tracking-[0.2em]">{tag}</button>
+                        <button
+                            key={tag}
+                            onClick={() => toggleTag(tag)}
+                            className={`px-6 py-3 glass-panel rounded-xl transition-all active:scale-95 font-black uppercase text-[10px] tracking-[0.2em] ${data.tags.includes(tag) ? 'bg-pulse-cyan text-void border-pulse-cyan shadow-[0_0_20px_rgba(0,245,212,0.3)]' : 'border-white/5 hover:border-pulse-cyan/40'}`}
+                        >
+                            {tag}
+                        </button>
                     ))}
                 </div>
             </div>
-            <button onClick={() => setLocation("/pulse/journal")} className="w-full py-5 bg-pulse-cyan text-void font-bold uppercase tracking-widest">Next</button>
+            <button
+                onClick={() => setLocation("/pulse/journal")}
+                disabled={data.tags.length === 0}
+                className={`w-full py-5 font-bold uppercase tracking-widest transition-all ${data.tags.length > 0 ? 'bg-pulse-cyan text-void' : 'bg-surface-low text-slate-600 opacity-50'}`}
+            >
+                Next Sequence
+            </button>
         </div>
     );
 }
 
-function PulseJournal() {
+function PulseJournal({ data, onUpdate }: { data: any, onUpdate: (d: any) => void }) {
     const [, setLocation] = useLocation();
     return (
         <div className="screen-container">
             <button onClick={() => setLocation("/pulse/tags")} className="mb-8 text-pulse-cyan transition-standard active-scale"><ChevronLeft /></button>
             <h2 className="text-4xl font-display font-black tracking-tight mb-2 uppercase">Internal Note</h2>
             <p className="text-on-surface-low font-arabic text-lg mb-8">احكي مع روحك بشوية... No one else will ever see this.</p>
-            <textarea className="flex-1 bg-transparent border-0 text-3xl font-arabic outline-none placeholder:text-on-surface/10 resize-none" placeholder="عبر هنا..." />
-            <button onClick={() => setLocation("/pulse")} className="py-6 bg-pulse-purple text-white font-black uppercase tracking-widest text-sm shadow-[0_0_40px_rgba(155,93,229,0.2)] mt-6 transition-standard active-scale">Secure Log</button>
+            <textarea
+                value={data.note}
+                onChange={(e) => onUpdate({ note: e.target.value })}
+                className="flex-1 bg-transparent border-0 text-3xl font-arabic outline-none placeholder:text-on-surface/10 resize-none"
+                placeholder="عبر هنا..."
+            />
+            <button onClick={() => setLocation("/pulse")} className="py-6 bg-pulse-purple text-white font-black uppercase tracking-widest text-sm shadow-[0_0_40px_rgba(155,93,229,0.2)] mt-6 transition-standard active-scale">Secure Log Complete</button>
         </div>
     );
 }

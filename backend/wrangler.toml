@@ -1,0 +1,11 @@
+name = "nafsi-backend"
+main = "src/index.ts"
+compatibility_date = "2024-04-21"
+
+[[d1_databases]]
+binding = "DB" # i.e. env.DB
+database_name = "nafsi-db"
+database_id = "686b3459-00ff-4fc1-b828-1763b7d80201"
+
+[observability]
+enabled = true

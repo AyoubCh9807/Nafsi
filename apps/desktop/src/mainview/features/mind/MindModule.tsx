@@ -75,17 +75,37 @@ function CBTLibrary() {
 
 function CBTPlayer() {
     const [, setLocation] = useLocation();
+    const [step, setStep] = React.useState(0);
+    const steps = [
+        { q: "What is the evidence that your catastrophic thought is actually true?", sub: "Write down 3 cold, hard facts." },
+        { q: "What is the evidence AGAINST this thought?", sub: "Look for alternative explanations." },
+        { q: "What would you tell a friend in this exact situation?", sub: "Be as compassionate as you would be to them." }
+    ];
+
+    const next = () => {
+        if (step < steps.length - 1) setStep(step + 1);
+        else setLocation("/mind/progress");
+    };
+
     return (
-        <div className="h-full p-8 flex flex-col justify-between items-center">
+        <div className="h-full p-8 flex flex-col justify-between items-center bg-[#050510]">
             <div className="w-full flex justify-between"><button onClick={() => setLocation("/mind/cbt_library")}><X /></button><RefreshCcw size={20} className="text-slate-700" /></div>
-            <div className="text-center space-y-6">
-                <h2 className="text-[10px] uppercase tracking-widest text-pulse-purple font-bold">CBT Sequence Active</h2>
-                <h1 className="text-5xl font-display font-black tracking-tight leading-none uppercase">Identifying Distortions</h1>
+            <motion.div
+                key={step}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center space-y-6"
+            >
+                <h2 className="text-[10px] uppercase tracking-widest text-pulse-purple font-bold">CBT Sequence Active // STEP {step + 1}</h2>
+                <h1 className="text-4xl font-display font-black tracking-tight leading-none uppercase">{steps[step].q}</h1>
                 <p className="text-slate-500 font-arabic text-xl leading-relaxed">
-                    What is the evidence that your catastrophic thought is actually true? Write down 3 cold, hard facts.
+                    {steps[step].sub}
                 </p>
-            </div>
-            <button className="w-full py-5 glass-panel text-pulse-purple font-bold uppercase tracking-widest border-pulse-purple/30">Complete Section</button>
+                <textarea className="w-full bg-surface-low/30 border border-white/5 rounded-xl p-6 text-xl font-arabic text-white focus:outline-none focus:border-pulse-purple h-40 resize-none transition-all" placeholder="عبر هنا..." />
+            </motion.div>
+            <button onClick={next} className="w-full py-5 glass-panel text-pulse-purple font-black uppercase tracking-widest border-pulse-purple/30 active:scale-95 transition-all">
+                {step < steps.length - 1 ? "Advance Sync" : "Anchor Session"}
+            </button>
         </div>
     );
 }
@@ -111,15 +131,36 @@ function BreathingSession() {
 
 function GroundingProtocol() {
     const [, setLocation] = useLocation();
+    const [step, setStep] = React.useState(5);
+
+    const steps = [
+        { n: 5, l: "Things you can SEE" },
+        { n: 4, l: "Things you can TOUCH" },
+        { n: 3, l: "Things you can HEAR" },
+        { n: 2, l: "Things you can SMELL" },
+        { n: 1, l: "Thing you can TASTE" },
+    ];
+
     return (
-        <div className="h-full p-8 flex flex-col justify-between">
+        <div className="h-full p-8 flex flex-col justify-between bg-void">
             <Header title="5-4-3-2-1" leftIcon={<ChevronLeft />} onLeftClick={() => setLocation("/mind")} />
-            <div className="flex-1 flex flex-col justify-center space-y-12">
-                <GroundingStep num="5" label="Things you can SEE" />
-                <GroundingStep num="4" label="Things you can TOUCH" opacity={0.6} />
-                <GroundingStep num="3" label="Things you can HEAR" opacity={0.3} />
+            <div className="flex-1 flex flex-col justify-center gap-10">
+                {steps.map((s) => (
+                    <div key={s.n} className={`flex items-center gap-8 transition-all duration-700 ${step < s.n ? 'opacity-20 translate-x-4 grayscale' : 'opacity-100 translate-x-0'}`}>
+                        <div className="text-7xl font-display font-black text-pulse-cyan">{s.n}</div>
+                        <div className="uppercase tracking-widest font-bold text-xs text-slate-400">{s.l}</div>
+                    </div>
+                ))}
             </div>
-            <button onClick={() => setLocation("/mind")} className="w-full py-5 bg-pulse-cyan text-void font-bold uppercase tracking-widest">Protocol Complete</button>
+            <button
+                onClick={() => {
+                    if (step > 1) setStep(step - 1);
+                    else setLocation("/mind");
+                }}
+                className="w-full py-6 bg-pulse-cyan text-void font-black uppercase tracking-widest shadow-[0_0_40px_rgba(0,245,212,0.3)] transition-all active:scale-95"
+            >
+                {step > 1 ? `Detected Step ${step}` : "Protocol Synchronized"}
+            </button>
         </div>
     );
 }
@@ -139,14 +180,7 @@ function ProgressData() {
     );
 }
 
-function GroundingStep({ num, label, opacity = 1 }: { num: string, label: string, opacity?: number }) {
-    return (
-        <div className="flex items-center gap-8" style={{ opacity }}>
-            <div className="text-8xl font-display font-black text-pulse-cyan">{num}</div>
-            <div className="uppercase tracking-widest font-bold text-xs text-slate-400">{label}</div>
-        </div>
-    );
-}
+
 
 function MindActionCard({ icon, title, onClick }: { icon: React.ReactNode, title: string, onClick: () => void }) {
     return (
