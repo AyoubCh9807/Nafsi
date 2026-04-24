@@ -13,6 +13,7 @@ export interface AppState {
     module: Module;
     subScreen: string;
     hasOnboarded: boolean;
+    isDecoyMode: boolean;
     userData: {
         language: string;
         ageVerified: boolean;

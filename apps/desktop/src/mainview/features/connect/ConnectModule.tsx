@@ -10,36 +10,54 @@ import { Skeleton } from "../../components/ui/Skeleton";
 
 import { Switch, Route, useLocation, Redirect } from "wouter";
 
-export function ConnectModule() {
+export function ConnectModule({ isDecoyMode }: { isDecoyMode?: boolean }) {
   return (
     <Switch>
-      <Route path="/connect" component={ConnectMain} />
-      <Route path="/nexus" component={ConnectMain} />
-      <Route path="/connect/room" component={ConnectRoom} />
-      <Route path="/nexus/room" component={ConnectRoom} />
-      <Route path="/connect/create" component={ConnectCreate} />
-      <Route path="/nexus/create" component={ConnectCreate} />
+      <Route path="/connect"><ConnectMain isDecoyMode={isDecoyMode} /></Route>
+      <Route path="/nexus"><ConnectMain isDecoyMode={isDecoyMode} /></Route>
+      <Route path="/connect/room"><ConnectRoom isDecoyMode={isDecoyMode} /></Route>
+      <Route path="/nexus/room"><ConnectRoom isDecoyMode={isDecoyMode} /></Route>
+      <Route path="/connect/create"><ConnectCreate isDecoyMode={isDecoyMode} /></Route>
+      <Route path="/nexus/create"><ConnectCreate isDecoyMode={isDecoyMode} /></Route>
       <Route><Redirect to="/nexus" /></Route>
     </Switch>
   );
 }
 
-function ConnectMain() {
+function ConnectMain({ isDecoyMode }: { isDecoyMode?: boolean }) {
   const [location, setLocation] = useLocation();
   const base = location.startsWith("/nexus") ? "/nexus" : "/connect";
   const [connecting, setConnecting] = useState(true);
+  const [rooms, setRooms] = useState<any[]>([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setConnecting(false), 1500);
-    return () => clearTimeout(timer);
+    async function fetchRooms() {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_AUTH_URL}/api/nexus/rooms`);
+        if (response.ok) {
+          const data = await response.json();
+          setRooms(data);
+        }
+      } catch (e) {
+        console.error("Failed to sync with Nexus", e);
+      } finally {
+        setConnecting(false);
+      }
+    }
+    fetchRooms();
   }, []);
 
   return (
     <div className="h-full overflow-y-auto pb-32">
-      <Header title="The Nexus" subtitle="Anonymous Collective" />
+      <Header
+        title={isDecoyMode ? "Discussion Hub" : "The Nexus"}
+        subtitle={isDecoyMode ? "Connect with others" : "Anonymous Collective"}
+      />
       <div className="p-6 space-y-8">
         <section>
-          <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-700 mb-4 px-2">Live Sanctuary Rooms</h3>
+          <h3 className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-700 mb-4 px-2">
+            {isDecoyMode ? "Active General Channels" : "Live Sanctuary Rooms"}
+          </h3>
           <div className="grid grid-cols-1 gap-4">
             {connecting ? (
               [...Array(3)].map((_, i) => (
@@ -47,18 +65,22 @@ function ConnectMain() {
                   <Skeleton className="h-28 w-full" />
                 </React.Fragment>
               ))
+            ) : rooms.length === 0 ? (
+              <div className="text-center py-12 glass-panel opacity-50 border-dashed border-white/5 rounded-2xl">
+                <p className="text-[9px] uppercase font-black text-slate-500 tracking-[0.2em]">No Active Nodes Found</p>
+              </div>
             ) : (
-              <>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                  <RoomCard title="Tech Burnout" active={12} type="Work" color="text-pulse-cyan" onClick={() => setLocation(`${base}/room`)} />
+              rooms.map((room, i) => (
+                <motion.div key={room.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}>
+                  <RoomCard
+                    title={room.name}
+                    active={Math.floor(Math.random() * 20)}
+                    type={room.category}
+                    color={i % 2 === 0 ? "text-pulse-cyan" : "text-pulse-purple"}
+                    onClick={() => setLocation(`${base}/room?id=${room.id}`)}
+                  />
                 </motion.div>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                  <RoomCard title="Mindful Silence" active={45} type="Growth" color="text-pulse-purple" onClick={() => setLocation(`${base}/room`)} />
-                </motion.div>
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                  <RoomCard title="Crisis Sync" active={3} type="Safety" color="text-pulse-pink" onClick={() => setLocation(`${base}/room`)} />
-                </motion.div>
-              </>
+              ))
             )}
           </div>
         </section>
@@ -72,17 +94,26 @@ function ConnectMain() {
   );
 }
 
-function ConnectRoom() {
+function ConnectRoom({ isDecoyMode }: { isDecoyMode?: boolean }) {
   const [location, setLocation] = useLocation();
   const base = location.startsWith("/nexus") ? "/nexus" : "/connect";
   return (
     <div className="h-full flex flex-col relative bg-[#050508]">
-      <Header title="ANONYMOUS_VOID" subtitle="12 PEERS SYNCED" leftIcon={<ChevronLeft />} onLeftClick={() => setLocation(base)} />
+      <Header
+        title={isDecoyMode ? "Discussion Room" : "ANONYMOUS_VOID"}
+        subtitle={isDecoyMode ? "Shared Space" : "12 PEERS SYNCED"}
+        leftIcon={<ChevronLeft />}
+        onLeftClick={() => setLocation(base)}
+      />
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <div className="text-center py-8"><span className="text-[9px] uppercase tracking-widest text-slate-800 font-bold bg-white/5 py-1 px-4 rounded-full">Encrypted P2P Nexus Protocol Active</span></div>
-        <RoomMessage user="GHOST_44" text="Today was the hardest day in a while, but I'm trying to stay present." />
-        <RoomMessage user="VOID_USER" text="We see you. Remember the 5-4-3-2-1 protocol if the tension peaks." />
-        <RoomMessage user="PULSE_88" text="Is anyone else finding the evening sessions helpful?" isOwn />
+        <div className="text-center py-8">
+          <span className="text-[9px] uppercase tracking-widest text-slate-800 font-bold bg-white/5 py-1 px-4 rounded-full">
+            {isDecoyMode ? "Open Discussion Channel" : "Encrypted P2P Nexus Protocol Active"}
+          </span>
+        </div>
+        <RoomMessage user={isDecoyMode ? "user_4" : "GHOST_44"} text={isDecoyMode ? "I love the new design of this discussion board." : "Today was the hardest day in a while, but I'm trying to stay present."} />
+        <RoomMessage user={isDecoyMode ? "mod_alpha" : "VOID_USER"} text={isDecoyMode ? "Glad you like it! We are adding more features soon." : "We see you. Remember the 5-4-3-2-1 protocol if the tension peaks."} />
+        <RoomMessage user="YOU" text={isDecoyMode ? "Does anyone know how to change the theme?" : "Is anyone else finding the evening sessions helpful?"} isOwn />
       </div>
       <div className="p-6 pb-24 flex items-center gap-4">
         <input className="flex-1 bg-surface-low border-b border-white/5 px-0 py-4 font-arabic text-on-surface focus:outline-none focus:border-pulse-cyan" placeholder="Transmit thought..." />
@@ -92,27 +123,56 @@ function ConnectRoom() {
   );
 }
 
-function ConnectCreate() {
+function ConnectCreate({ isDecoyMode }: { isDecoyMode?: boolean }) {
   const [location, setLocation] = useLocation();
   const base = location.startsWith("/nexus") ? "/nexus" : "/connect";
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("Growth");
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleCreate = async () => {
+    if (!name || isCreating) return;
+    setIsCreating(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_AUTH_URL}/api/nexus/rooms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, category, description: isDecoyMode ? "Public discussion" : "Private sanctuary space" })
+      });
+      if (response.ok) {
+        setLocation(base);
+      }
+    } catch (e) {
+      console.error("Failed to construct space", e);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-void">
-      <Header title="Construct Space" leftIcon={<ChevronLeft />} onLeftClick={() => setLocation(base)} />
+      <Header title={isDecoyMode ? "New Discussion" : "Construct Space"} leftIcon={<ChevronLeft />} onLeftClick={() => setLocation(base)} />
       <div className="p-8 space-y-8 overflow-y-auto pb-32">
         <div className="space-y-6">
           <div className="space-y-3">
             <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-slate-500 px-1">Room Designation</label>
             <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full bg-surface-low border-b border-white/5 py-4 px-4 text-xl text-white focus:outline-none focus:border-pulse-purple transition-all"
-              placeholder="e.g. Deep Silence"
+              placeholder={isDecoyMode ? "e.g. Cinema Talk" : "e.g. Deep Silence"}
             />
           </div>
 
           <div className="space-y-3">
             <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-slate-500 px-1">Category Core</label>
             <div className="grid grid-cols-2 gap-2">
-              {["Growth", "Support", "Crisis", "Venting", "Quiet", "Work"].map(c => (
-                <button key={c} className="py-4 glass-panel text-[10px] font-black uppercase tracking-widest border-white/5 hover:border-pulse-purple transition-all active:scale-[0.98]">
+              {(isDecoyMode ? ["Social", "Hobbies", "Tech", "General"] : ["Growth", "Support", "Crisis", "Venting", "Quiet", "Work"]).map(c => (
+                <button
+                  key={c}
+                  onClick={() => setCategory(c)}
+                  className={`py-4 glass-panel text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98] ${category === c ? 'border-pulse-purple bg-pulse-purple/10 text-white' : 'border-white/5 text-slate-500'}`}
+                >
                   {c}
                 </button>
               ))}
@@ -122,16 +182,16 @@ function ConnectCreate() {
           <div className="space-y-3">
             <label className="text-[10px] uppercase font-bold tracking-[0.3em] text-slate-500 px-1">Privacy Layer</label>
             <div className="glass-panel p-6 space-y-4">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center text-left">
                 <div>
-                  <p className="text-white font-bold text-sm">Anonymous Only</p>
-                  <p className="text-[9px] text-slate-500 uppercase">Hide all user profiles</p>
+                  <p className="text-white font-bold text-sm">{isDecoyMode ? "Public Access" : "Anonymous Only"}</p>
+                  <p className="text-[9px] text-slate-500 uppercase">{isDecoyMode ? "Open to everyone" : "Hide all user profiles"}</p>
                 </div>
                 <div className="w-10 h-5 bg-pulse-purple rounded-full p-0.5 flex justify-end">
                   <div className="w-4 h-4 bg-void rounded-full" />
                 </div>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center text-left">
                 <div>
                   <p className="text-white font-bold text-sm">Self-Destruct</p>
                   <p className="text-[9px] text-slate-500 uppercase">Wipe history every 24h</p>
@@ -145,10 +205,11 @@ function ConnectCreate() {
         </div>
 
         <button
-          onClick={() => setLocation(base)}
-          className="w-full py-6 bg-pulse-purple text-white font-black uppercase tracking-widest text-sm shadow-[0_0_40px_rgba(155,93,229,0.3)] transition-standard active-scale"
+          onClick={handleCreate}
+          disabled={!name || isCreating}
+          className="w-full py-6 bg-pulse-purple text-white font-black uppercase tracking-widest text-sm shadow-[0_0_40px_rgba(155,93,229,0.3)] transition-standard active:scale-95 disabled:opacity-50"
         >
-          Initialize Space
+          {isCreating ? "Initializing..." : isDecoyMode ? "Create Discussion" : "Initialize Space"}
         </button>
       </div>
     </div>

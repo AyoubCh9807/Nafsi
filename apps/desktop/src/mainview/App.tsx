@@ -27,33 +27,54 @@ import { EmergencyModule } from "./features/emergency/EmergencyModule";
 import { MeModule } from "./features/me/MeModule";
 import { PremiumModule } from "./features/premium/PremiumModule";
 import { AuthModule } from "./features/auth/AuthModule";
-import { getPreferences, savePreferences } from "./lib/preferences";
+import { loadSecurePreferences, saveSecurePreferences, DEFAULT_SETTINGS } from "./lib/preferences";
 import { authClient } from "./lib/auth-client";
 
 export default function App() {
-  // Initialize state synchronously to prevent mount-flicker
-  const [prefs] = useState(() => getPreferences());
-  const [hasOnboarded, setHasOnboarded] = useState<boolean>(prefs.hasOnboarded);
-  const [userData, setUserData] = useState<AppState['userData']>(prefs.userData);
+  const [isAppReady, setIsAppReady] = useState(false);
+  const [hasOnboarded, setHasOnboarded] = useState<boolean>(DEFAULT_SETTINGS.hasOnboarded);
+  const [userData, setUserData] = useState<AppState['userData']>(DEFAULT_SETTINGS.userData);
+  const [isDecoyMode, setIsDecoyMode] = useState<boolean>(() => {
+    return sessionStorage.getItem("nafsi_decoy_active") === "true";
+  });
 
   const { data: session, isPending } = authClient.useSession();
   const [location, setLocation] = useLocation();
 
-  // Sync state back to LocalStorage when changed
+  // Initialization: Load Encrypted Vault
   useEffect(() => {
-    savePreferences({
+    async function initVault() {
+      const prefs = await loadSecurePreferences();
+      setHasOnboarded(isDecoyMode ? true : prefs.hasOnboarded);
+      setUserData(prefs.userData);
+      setIsAppReady(true);
+    }
+    initVault();
+  }, [isDecoyMode]);
+
+  // Effect to sync session-based onboarding state
+  useEffect(() => {
+    if (isDecoyMode || isPending) return;
+    if (session?.user && (session.user as any).hasOnboarded) {
+      setHasOnboarded(true);
+    }
+  }, [session, isDecoyMode, isPending]);
+
+  // Sync state back to Encrypted Vault when changed
+  useEffect(() => {
+    if (!isAppReady) return;
+    saveSecurePreferences({
       hasOnboarded,
       userData,
       lastRoute: location
     });
 
-    // Apply theme to body
     if (userData.theme === 'dark') {
       document.body.classList.add('dark');
     } else {
       document.body.classList.remove('dark');
     }
-  }, [hasOnboarded, userData, location]);
+  }, [hasOnboarded, userData, location, isAppReady]);
 
   const handleSetState: React.Dispatch<React.SetStateAction<AppState>> = (updater) => {
     if (typeof updater === 'function') {
@@ -67,8 +88,8 @@ export default function App() {
 
   const isAuthRoute = ["/login", "/register", "/recovery"].some(path => location.startsWith(path));
 
-  // Identity Firewall: Block rendering while session is being resolved
-  if (isPending || session === undefined) {
+  // Identity Firewall: Block rendering while session or vault is being resolved
+  if (isPending || session === undefined || !isAppReady) {
     return (
       <div className="h-screen bg-void flex items-center justify-center">
         <div className="relative">
@@ -124,14 +145,18 @@ export default function App() {
               <Route path="/chat*"><ChatModule /></Route>
               <Route path="/mind*"><MindModule /></Route>
               <Route path="/insights*"><InsightsModule /></Route>
-              <Route path="/connect*"><ConnectModule /></Route>
-              <Route path="/nexus*"><ConnectModule /></Route>
+              <Route path="/connect*">
+                <ConnectModule isDecoyMode={isDecoyMode} />
+              </Route>
+              <Route path="/nexus*">
+                <ConnectModule isDecoyMode={isDecoyMode} />
+              </Route>
               <Route path="/emergency*"><EmergencyModule /></Route>
               <Route path="/me*">
-                <MeModule state={{ hasOnboarded, userData, module: 'me' } as any} setState={handleSetState} />
+                <MeModule state={{ hasOnboarded, userData, isDecoyMode, module: 'me' } as any} setState={handleSetState} />
               </Route>
               <Route path="/vault*">
-                <MeModule state={{ hasOnboarded, userData, module: 'me' } as any} setState={handleSetState} />
+                <MeModule state={{ hasOnboarded, userData, isDecoyMode, module: 'me' } as any} setState={handleSetState} />
               </Route>
               <Route path="/premium*"><PremiumModule /></Route>
               <Route path="/login*"><AuthModule /></Route>

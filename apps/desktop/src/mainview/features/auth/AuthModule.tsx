@@ -54,14 +54,60 @@ export function AuthModule() {
 
 function LoginScreen() {
    const [, setLocation] = useLocation();
+   const [email, setEmail] = useState("");
+   const [password, setPassword] = useState("");
+   const [isLoading, setIsLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const [safetyTaps, setSafetyTaps] = useState(0);
+
+   const enterDecoyMode = () => {
+      sessionStorage.setItem("nafsi_decoy_active", "true");
+      window.location.reload();
+   };
+
+   const handleLogin = async () => {
+      if (password === "0000") {
+         enterDecoyMode();
+         return;
+      }
+      if (isLoading) return;
+      setIsLoading(true);
+      setError(null);
+
+      try {
+         const { data, error: authError } = await authClient.signIn.email({ email, password });
+         if (authError) {
+            setError(authError.message || "Authentication failed. Please check your credentials.");
+         } else {
+            console.log("Logged in:", data);
+         }
+      } catch (e) {
+         setError("A neural connection error occurred. Try again later.");
+      } finally {
+         setIsLoading(false);
+      }
+   };
+
    return (
       <div className="screen-container space-y-10">
          <div className="space-y-6">
-            <div className="w-14 h-14 glass-panel flex items-center justify-center text-pulse-cyan">
+            <div
+               onClick={() => {
+                  setSafetyTaps(prev => {
+                     if (prev >= 2) {
+                        enterDecoyMode();
+                        return 0;
+                     }
+                     return prev + 1;
+                  });
+                  setTimeout(() => setSafetyTaps(0), 2000);
+               }}
+               className="w-14 h-14 glass-panel flex items-center justify-center text-pulse-cyan cursor-pointer active:scale-90 transition-transform"
+            >
                <Lock size={28} />
             </div>
             <h2 className="text-5xl font-display font-black tracking-tighter leading-none uppercase">RECONNECT</h2>
-            <p className="text-on-surface-low font-arabic text-lg leading-relaxed">أدخل بريدك الإلكتروني للوصول إلى بياناتك المشفرة.</p>
+            <p className="text-on-surface-low font-arabic text-lg leading-relaxed">{safetyTaps > 0 ? "INITIATING_SAFE_SYNC..." : "أدخل بريدك الإلكتروني للوصول إلى بياناتك المشفرة."}</p>
          </div>
 
          <div className="space-y-8">
@@ -72,34 +118,48 @@ function LoginScreen() {
                      <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
                      <input
                         type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="identity@sanctuary.com"
                         className="w-full bg-surface-low border-b border-white/10 pl-14 pr-4 py-5 text-lg text-white focus:outline-none focus:border-pulse-cyan transition-all"
+                        disabled={isLoading}
                      />
                   </div>
                </div>
                <div className="space-y-3">
                   <div className="flex justify-between items-center px-1">
                      <label className="text-[12px] uppercase font-bold tracking-[0.35em] text-slate-500">Neural Passphrase</label>
-                     <button onClick={() => setLocation("/recovery")} className="text-[10px] text-pulse-pink uppercase font-black tracking-widest hover:opacity-80 transition-opacity">Forgotten Key?</button>
+                     <button onClick={() => setLocation("/recovery")} className="text-[10px] text-pulse-pink uppercase font-black tracking-widest hover:opacity-80 transition-opacity" disabled={isLoading}>Forgotten Key?</button>
                   </div>
                   <input
                      type="password"
+                     value={password}
+                     onChange={(e) => setPassword(e.target.value)}
                      placeholder="••••••••"
                      className="w-full bg-surface-low border-b border-white/10 px-6 py-5 text-lg text-white focus:outline-none focus:border-pulse-cyan transition-all"
+                     disabled={isLoading}
                   />
                </div>
+
+               {error && (
+                  <motion.div
+                     initial={{ opacity: 0, y: -10 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     className="p-4 bg-pulse-pink/10 border border-pulse-pink/20 text-pulse-pink text-[11px] font-black uppercase tracking-widest text-center"
+                  >
+                     {error}
+                  </motion.div>
+               )}
             </div>
 
             <button
-               onClick={async () => {
-                  const email = (document.querySelector('input[type="email"]') as HTMLInputElement).value;
-                  const password = (document.querySelector('input[type="password"]') as HTMLInputElement).value;
-                  await authClient.signIn.email({ email, password });
-               }}
-               className="w-full py-6 bg-pulse-cyan text-void font-black uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-standard active-scale shadow-[0_0_30px_rgba(0,245,212,0.25)]"
+               onClick={handleLogin}
+               disabled={isLoading || !email || !password}
+               className={`w-full py-6 transition-standard uppercase tracking-widest text-sm flex items-center justify-center gap-3 active-scale shadow-[0_0_30px_rgba(0,245,212,0.25)] ${isLoading || !email || !password ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none' : 'bg-pulse-cyan text-void font-black'
+                  }`}
             >
-               Sync Vault
-               <Zap size={20} />
+               {isLoading ? "Synchronizing..." : "Sync Vault"}
+               <Zap size={20} className={isLoading ? "animate-pulse" : ""} />
             </button>
          </div>
 
@@ -112,15 +172,17 @@ function LoginScreen() {
 
             <div className="grid grid-cols-2 gap-4">
                <button
+                  disabled={isLoading}
                   onClick={() => authClient.signIn.social({ provider: "google" })}
-                  className="flex items-center justify-center gap-2 py-5 glass-panel border-white/5 hover:bg-white/5 transition-all active:scale-[0.95]"
+                  className="flex items-center justify-center gap-2 py-5 glass-panel border-white/5 hover:bg-white/5 transition-all active:scale-[0.95] disabled:opacity-50"
                >
                   <GoogleIcon size={20} />
                   <span className="text-[11px] font-black uppercase tracking-widest">Google</span>
                </button>
                <button
+                  disabled={isLoading}
                   onClick={() => authClient.signIn.social({ provider: "apple" })}
-                  className="flex items-center justify-center gap-2 py-5 glass-panel border-white/5 hover:bg-white/5 transition-all active:scale-[0.95]"
+                  className="flex items-center justify-center gap-2 py-5 glass-panel border-white/5 hover:bg-white/5 transition-all active:scale-[0.95] disabled:opacity-50"
                >
                   <AppleIcon size={20} />
                   <span className="text-[11px] font-black uppercase tracking-widest">Apple</span>
@@ -128,23 +190,31 @@ function LoginScreen() {
             </div>
 
             <button
+               disabled={isLoading || !email}
                onClick={async () => {
-                  const email = (document.querySelector('input[type="email"]') as HTMLInputElement).value;
-                  if (email) {
-                     await authClient.signIn.magicLink({ email });
+                  setError(null);
+                  setIsLoading(true);
+                  const { error: magicError } = await authClient.signIn.magicLink({ email });
+                  if (magicError) {
+                     setError(magicError.message || "Failed to transmit link.");
+                  } else {
                      alert("Magic link transmitted to your neural endpoint.");
                   }
+                  setIsLoading(false);
                }}
-               className="w-full py-5 glass-panel border-white/5 flex items-center justify-center gap-3 hover:bg-white/5 transition-all active:scale-[0.95]"
+               className="w-full py-5 glass-panel border-white/5 flex items-center justify-center gap-3 hover:bg-white/5 transition-all active:scale-[0.95] disabled:opacity-50"
             >
                <Mail size={20} className="text-pulse-cyan/60" />
-               <span className="text-[11px] font-black uppercase tracking-widest">Email Magic Link / OTP</span>
+               <span className="text-[11px] font-black uppercase tracking-widest">
+                  {isLoading ? "Transmitting..." : "Email Magic Link / OTP"}
+               </span>
             </button>
          </div>
 
          <button
             onClick={() => setLocation("/register")}
-            className="w-full py-6 text-[12px] text-slate-500 uppercase font-black tracking-widest flex items-center justify-center gap-3 hover:text-white transition-all mt-4"
+            disabled={isLoading}
+            className="w-full py-6 text-[12px] text-slate-500 uppercase font-black tracking-widest flex items-center justify-center gap-3 hover:text-white transition-all mt-4 disabled:opacity-50"
          >
             <UserPlus size={18} />
             Construct New Identity
@@ -156,6 +226,8 @@ function LoginScreen() {
 function RecoveryScreen() {
    const [, setLocation] = useLocation();
    const [recoveryMethod, setRecoveryMethod] = useState<"email" | "seed">("email");
+   const [email, setEmail] = useState("");
+   const [isLoading, setIsLoading] = useState(false);
 
    return (
       <div className="screen-container space-y-12">
@@ -192,8 +264,11 @@ function RecoveryScreen() {
                            <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
                            <input
                               type="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
                               placeholder="identity@sanctuary.com"
                               className="w-full bg-surface-low border-b border-white/10 pl-14 pr-4 py-5 text-lg text-white focus:outline-none focus:border-pulse-pink transition-all"
+                              disabled={isLoading}
                            />
                         </div>
                      </div>
@@ -216,13 +291,27 @@ function RecoveryScreen() {
          </div>
 
          <div className="space-y-4">
-            <button className="w-full py-6 bg-pulse-pink text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-3 active:scale-[0.98] transition-transform shadow-[0_0_30px_rgba(241,91,181,0.25)]">
-               {recoveryMethod === "email" ? "Transmit Link" : "Reconstruct Access"}
-               <ArrowRight size={20} />
+            <button
+               disabled={isLoading || (recoveryMethod === "email" && !email)}
+               onClick={async () => {
+                  if (recoveryMethod === "email") {
+                     setIsLoading(true);
+                     // Implement actual recovery logic if needed
+                     setTimeout(() => {
+                        alert("Recovery protocol initiated.");
+                        setIsLoading(false);
+                     }, 1500);
+                  }
+               }}
+               className={`w-full py-6 bg-pulse-pink text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-3 active:scale-[0.98] transition-transform shadow-[0_0_30px_rgba(241,91,181,0.25)] ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+               {isLoading ? "Processing..." : (recoveryMethod === "email" ? "Transmit Link" : "Reconstruct Access")}
+               <ArrowRight size={20} className={isLoading ? "animate-pulse" : ""} />
             </button>
             <button
                onClick={() => setLocation("/login")}
-               className="w-full py-5 text-[12px] text-slate-500 uppercase font-black tracking-widest hover:text-white transition-colors"
+               disabled={isLoading}
+               className="w-full py-5 text-[12px] text-slate-500 uppercase font-black tracking-widest hover:text-white transition-colors disabled:opacity-50"
             >
                Return to Origin
             </button>
@@ -235,6 +324,8 @@ function RegisterScreen() {
    const [, setLocation] = useLocation();
    const [password, setPassword] = useState("");
    const [email, setEmail] = useState("");
+   const [isLoading, setIsLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
 
    const getStrength = (pwd: string) => {
       if (!pwd) return { level: 0, label: "Awaiting Input", color: "bg-white/5", text: "text-on-surface-low" };
@@ -251,6 +342,30 @@ function RegisterScreen() {
    };
 
    const strength = getStrength(password);
+
+   const handleRegister = async () => {
+      if (isLoading) return;
+      setIsLoading(true);
+      setError(null);
+
+      try {
+         const { data, error: registerError } = await authClient.signUp.email({
+            email,
+            password,
+            name: "Anonymous User"
+         });
+
+         if (registerError) {
+            setError(registerError.message || "Construction failed. Ensure your email is unique.");
+         } else {
+            console.log("Registered:", data);
+         }
+      } catch (e) {
+         setError("Connection to Sanctuary lost. Try reconnecting.");
+      } finally {
+         setIsLoading(false);
+      }
+   };
 
    return (
       <div className="screen-container space-y-10">
@@ -274,6 +389,7 @@ function RegisterScreen() {
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="identity@sanctuary.com"
                         className="w-full bg-surface-low border-b border-white/10 pl-14 pr-4 py-5 text-lg text-white focus:outline-none focus:border-pulse-purple transition-all"
+                        disabled={isLoading}
                      />
                   </div>
                </div>
@@ -286,6 +402,7 @@ function RegisterScreen() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full bg-surface-low border-b border-white/10 px-6 py-5 text-lg text-white focus:outline-none focus:border-pulse-purple transition-all"
+                        disabled={isLoading}
                      />
                   </div>
 
@@ -305,6 +422,16 @@ function RegisterScreen() {
                      </div>
                   </div>
                </div>
+
+               {error && (
+                  <motion.div
+                     initial={{ opacity: 0, y: -10 }}
+                     animate={{ opacity: 1, y: 0 }}
+                     className="p-4 bg-pulse-pink/10 border border-pulse-pink/20 text-pulse-pink text-[11px] font-black uppercase tracking-widest text-center"
+                  >
+                     {error}
+                  </motion.div>
+               )}
             </div>
 
             <div className="p-6 glass-panel border-pulse-purple/20 text-left">
@@ -316,21 +443,18 @@ function RegisterScreen() {
 
          <div className="space-y-4">
             <button
-               onClick={async () => {
-                  await authClient.signUp.email({
-                     email,
-                     password,
-                     name: "Anonymous User" // Placeholder for Better-Auth requirement if needed, or null if schema allows
-                  });
-               }}
-               className="w-full py-6 bg-pulse-purple text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-standard active-scale shadow-[0_0_30px_rgba(155,93,229,0.25)]"
+               onClick={handleRegister}
+               disabled={isLoading || !email || password.length < 8}
+               className={`w-full py-6 text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-3 transition-standard active-scale shadow-[0_0_30px_rgba(155,93,229,0.25)] ${isLoading || !email || password.length < 8 ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none' : 'bg-pulse-purple'
+                  }`}
             >
-               Generate Identity
-               <ArrowRight size={20} />
+               {isLoading ? "Generating..." : "Generate Identity"}
+               <ArrowRight size={20} className={isLoading ? "animate-pulse" : ""} />
             </button>
             <button
                onClick={() => setLocation("/login")}
-               className="w-full py-5 text-[12px] text-slate-500 uppercase font-black tracking-widest flex items-center justify-center gap-3 hover:text-white transition-all"
+               disabled={isLoading}
+               className="w-full py-5 text-[12px] text-slate-500 uppercase font-black tracking-widest flex items-center justify-center gap-3 hover:text-white transition-all disabled:opacity-50"
             >
                <LogIn size={18} />
                Access Existing Vault
@@ -339,4 +463,5 @@ function RegisterScreen() {
       </div>
    );
 }
+
 

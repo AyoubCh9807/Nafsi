@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { drizzle } from "drizzle-orm/d1";
+import { eq } from "drizzle-orm";
 import * as schema from "./db/schema";
 import { getAuth } from "./auth";
 import { D1Database } from "@cloudflare/workers-types";
@@ -9,6 +10,7 @@ type Bindings = {
     DB: D1Database;
     BETTER_AUTH_SECRET: string;
     BETTER_AUTH_URL: string;
+    SENDGRID_API_KEY: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -23,10 +25,81 @@ app.use("*", cors({
     credentials: true,
 }));
 
-app.on(["POST", "GET"], "/api/auth/**", (c) => {
+app.all("/api/auth/*", (c) => {
     const db = drizzle(c.env.DB, { schema });
     const auth = getAuth(db, c.env);
     return auth.handler(c.req.raw);
+});
+
+// Middleware to get session
+const getSession = async (c: any) => {
+    const db = drizzle(c.env.DB, { schema });
+    const auth = getAuth(db, c.env);
+    return await auth.api.getSession({ headers: c.req.raw.headers });
+};
+
+app.get("/api/nexus/rooms", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const db = drizzle(c.env.DB, { schema });
+    const rooms = await db.select().from(schema.room).orderBy(schema.room.createdAt);
+    return c.json(rooms);
+});
+
+app.post("/api/nexus/rooms", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const db = drizzle(c.env.DB, { schema });
+    const { name, category, description } = await c.req.json();
+
+    const newRoom = {
+        id: crypto.randomUUID(),
+        name,
+        category,
+        description,
+        createdBy: session.user.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    };
+
+    await db.insert(schema.room).values(newRoom);
+    return c.json(newRoom);
+});
+
+app.get("/api/nexus/rooms/:id/messages", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const roomId = c.req.param("id");
+    const db = drizzle(c.env.DB, { schema });
+    const messages = await db.select()
+        .from(schema.message)
+        .where(eq(schema.message.roomId, roomId))
+        .orderBy(schema.message.createdAt);
+    return c.json(messages);
+});
+
+app.post("/api/nexus/rooms/:id/messages", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const roomId = c.req.param("id");
+    const { content, type } = await c.req.json();
+    const db = drizzle(c.env.DB, { schema });
+
+    const newMessage = {
+        id: crypto.randomUUID(),
+        roomId,
+        userId: session.user.id,
+        content,
+        type: type || "text",
+        createdAt: new Date(),
+    };
+
+    await db.insert(schema.message).values(newMessage);
+    return c.json(newMessage);
 });
 
 app.get("/health", (c) => {

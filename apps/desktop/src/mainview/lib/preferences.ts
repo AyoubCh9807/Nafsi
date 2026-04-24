@@ -1,3 +1,4 @@
+import { encryptData, decryptData } from "./crypto";
 
 export interface AppSettings {
     hasOnboarded: boolean;
@@ -11,9 +12,9 @@ export interface AppSettings {
     lastRoute: string;
 }
 
-const STORAGE_KEY = "nafsi_preferences";
+const STORAGE_KEY = "nafsi_vault_blob";
 
-const DEFAULT_SETTINGS: AppSettings = {
+export const DEFAULT_SETTINGS: AppSettings = {
     hasOnboarded: false,
     userData: {
         language: "en",
@@ -25,24 +26,32 @@ const DEFAULT_SETTINGS: AppSettings = {
     lastRoute: "/pulse",
 };
 
-export const getPreferences = (): AppSettings => {
+/**
+ * NEW: Asynchronous load since WebCrypto is async.
+ */
+export const loadSecurePreferences = async (): Promise<AppSettings> => {
     try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+        const encrypted = localStorage.getItem(STORAGE_KEY);
+        if (encrypted) {
+            const decrypted = await decryptData(encrypted);
+            if (decrypted) {
+                return { ...DEFAULT_SETTINGS, ...JSON.parse(decrypted) };
+            }
         }
     } catch (e) {
-        console.error("Failed to load preferences", e);
+        console.error("Vault decryption failed", e);
     }
     return DEFAULT_SETTINGS;
 };
 
-export const savePreferences = (settings: Partial<AppSettings>) => {
+export const saveSecurePreferences = async (settings: Partial<AppSettings>) => {
     try {
-        const current = getPreferences();
+        // We need the current decrypted state to merge
+        const current = await loadSecurePreferences();
         const updated = { ...current, ...settings };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        const encrypted = await encryptData(JSON.stringify(updated));
+        localStorage.setItem(STORAGE_KEY, encrypted);
     } catch (e) {
-        console.error("Failed to save preferences", e);
+        console.error("Vault encryption failed", e);
     }
 };

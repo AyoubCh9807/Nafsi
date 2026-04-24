@@ -11,8 +11,10 @@ export const user = sqliteTable("user", {
     email: text("email").notNull().unique(),         // Managed by Anonymous plugin/Linker
     emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
     image: text("image"),
+    decoyPassphrase: text("decoy_passphrase"), // Salted hash for decoy login
 
     isAnonymous: integer("is_anonymous", { mode: "boolean" }).notNull().default(true),
+    hasOnboarded: integer("has_onboarded", { mode: "boolean" }).notNull().default(false),
     linkedAt: integer("linked_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
@@ -111,3 +113,34 @@ export const crisisResource = sqliteTable("crisis_resource", {
     url: text("url"),                                // optional web resource
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
 });
+
+// ─── NEXUS ROOMS ──────────────────────────────────────
+// Collective spaces. P2P signaling happens here.
+
+export const room = sqliteTable("room", {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description"),
+    category: text("category").notNull(),       // "growth", "support", "crisis", etc.
+    createdBy: text("created_by").notNull().references(() => user.id, { onDelete: "cascade" }),
+    isDecoy: integer("is_decoy", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+}, (table) => [
+    index("idx_room_category").on(table.category),
+    index("idx_room_created").on(table.createdAt),
+]);
+
+// ─── NEXUS MESSAGES ───────────────────────────────────
+// Ephemeral by preference. We store them for sync, but they are scrubbed by D1 TTL.
+
+export const message = sqliteTable("message", {
+    id: text("id").primaryKey(),
+    roomId: text("room_id").notNull().references(() => room.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),          // Encrypted client-side usually
+    type: text("type").notNull().default("text"), // "text", "system", "signal" (for WebRTC)
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+}, (table) => [
+    index("idx_message_room").on(table.roomId, table.createdAt),
+]);

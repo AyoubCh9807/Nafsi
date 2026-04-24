@@ -12,6 +12,7 @@ import {
 import { motion } from "framer-motion";
 import { AppState } from "../../types/app";
 import { Switch, Route, useLocation } from "wouter";
+import { authClient } from "../../lib/auth-client";
 
 interface OnboardingProps {
     setState: React.Dispatch<React.SetStateAction<AppState>>;
@@ -145,8 +146,15 @@ function EncryptionKeygen() {
 
 function CompletionStep({ setState }: { setState: React.Dispatch<React.SetStateAction<AppState>> }) {
     const [, setLocation] = useLocation();
-    const finish = () => {
+    const finish = async () => {
         setState(p => ({ ...p, hasOnboarded: true }));
+        try {
+            await (authClient as any).updateUser({
+                hasOnboarded: true
+            });
+        } catch (e) {
+            console.error("Failed to sync onboarding state to cloud", e);
+        }
         setLocation("/pulse");
     };
     return (
