@@ -2,6 +2,10 @@
   "name": "nafsi",
   "private": true,
   "version": "0.0.1",
+  "workspaces": [
+    "apps/*",
+    "backend"
+  ],
   "scripts": {
     "dev": "turbo dev",
     "deploy": "bun --filter backend deploy",
