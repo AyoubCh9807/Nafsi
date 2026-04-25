@@ -1,6 +1,7 @@
 {
   "name": "desktop",
   "version": "0.0.1",
+  "packageManager": "bun@1.2.15",
   "private": true,
   "type": "module",
   "devDependencies": {
