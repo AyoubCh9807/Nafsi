@@ -23,32 +23,7 @@ import {
 } from "recharts";
 import { Header } from "../../components/ui/Header";
 
-// --- MOCK DATA ---
-const precisionData = [
-    { name: "Mon", score: 65, sync: 40 },
-    { name: "Tue", score: 78, sync: 55 },
-    { name: "Wed", score: 72, sync: 60 },
-    { name: "Thu", score: 85, sync: 65 },
-    { name: "Fri", score: 91, sync: 70 },
-    { name: "Sat", score: 88, sync: 75 },
-    { name: "Sun", score: 94, sync: 80 },
-];
-
-const collectiveData = [
-    { name: "00:00", active: 120 },
-    { name: "04:00", active: 450 },
-    { name: "08:00", active: 890 },
-    { name: "12:00", active: 1240 },
-    { name: "16:00", active: 1560 },
-    { name: "20:00", active: 2100 },
-];
-
-const distortionData = [
-    { name: "Catastrophizing", value: 40, color: "#00F5D4" },
-    { name: "Emotional Reasoning", value: 30, color: "#9B5DE5" },
-    { name: "Black & White", value: 20, color: "#F15BB5" },
-    { name: "Mind Reading", value: 10, color: "#94A3B8" },
-];
+import { aggregateNeuralData, getTopDistortions, getWellnessMetrics, ChartPoint } from "./data-aggregator";
 
 import { Switch, Route, useLocation } from "wouter";
 
@@ -65,6 +40,38 @@ export function InsightsModule() {
 
 function InsightsMain() {
     const [, setLocation] = useLocation();
+    const [precisionData, setPrecisionData] = React.useState<ChartPoint[]>([]);
+    const [metrics, setMetrics] = React.useState({ offset: "0.0", sync: 0 });
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        const load = async () => {
+            const data = await aggregateNeuralData();
+            const m = await getWellnessMetrics();
+            setPrecisionData(data);
+            setMetrics(m as any);
+            setLoading(false);
+        };
+        load();
+    }, []);
+
+    const collectiveData = [
+        { name: "00:00", active: 120 },
+        { name: "04:00", active: 450 },
+        { name: "08:00", active: 890 },
+        { name: "12:00", active: 1240 },
+        { name: "16:00", active: 1560 },
+        { name: "20:00", active: 2100 },
+    ];
+    if (loading) {
+        return (
+            <div className="h-full flex flex-col items-center justify-center bg-void">
+                <div className="w-12 h-12 border-2 border-pulse-cyan/20 border-t-pulse-cyan rounded-full animate-spin" />
+                <span className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Synthesizing Neural Data...</span>
+            </div>
+        );
+    }
+
     return (
         <div className="h-full overflow-y-auto pb-32">
             <Header title="Data Engine" subtitle="Neural Insights" />
@@ -118,15 +125,15 @@ function InsightsMain() {
                     <InsightGridItem
                         icon={<Activity size={16} className="text-pulse-cyan" />}
                         title="Wellness Offset"
-                        value="8.4"
-                        meta="+1.2%"
+                        value={metrics.offset}
+                        meta={parseFloat(metrics.offset) >= 0 ? `+${metrics.offset}%` : `${metrics.offset}%`}
                         onClick={() => setLocation("/insights/dashboard")}
                     />
                     <InsightGridItem
                         icon={<Layers size={16} className="text-pulse-purple" />}
                         title="Neural Sync"
-                        value="92%"
-                        meta="OPTIMAL"
+                        value={`${metrics.sync}%`}
+                        meta={metrics.sync > 80 ? "OPTIMAL" : "STABILIZING"}
                         onClick={() => setLocation("/insights/trends")}
                     />
                 </div>
@@ -184,6 +191,15 @@ function InsightsMain() {
 
 function AIInsights() {
     const [, setLocation] = useLocation();
+    const [distortionData, setDistortionData] = React.useState<any[]>([]);
+
+    React.useEffect(() => {
+        const load = async () => {
+            const data = await getTopDistortions();
+            setDistortionData(data);
+        };
+        load();
+    }, []);
     return (
         <div className="h-full flex flex-col bg-void">
             <Header title="AI Engine" subtitle="Neural Synthesis" leftIcon={<X />} onLeftClick={() => setLocation("/insights")} />

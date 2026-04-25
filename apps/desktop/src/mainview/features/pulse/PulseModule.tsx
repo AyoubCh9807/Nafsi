@@ -4,13 +4,16 @@ import {
     AreaChart,
     ChevronLeft,
     TrendingUp,
-    ShieldCheck
+    ShieldCheck,
+    Sparkles,
+    Zap
 } from "lucide-react";
+import { getLocalRecommendations, Recommendation } from "../../lib/recommender";
 import { motion } from "framer-motion";
 import { Header } from "../../components/ui/Header";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { getLogs } from "../../lib/db";
+import { getLogs, saveLog } from "../../lib/db";
 
 import { Switch, Route, useLocation, Redirect } from "wouter";
 
@@ -40,6 +43,20 @@ export function PulseModule() {
 
 function PulseMain() {
     const [, setLocation] = useLocation();
+    const [stabilityScore, setStabilityScore] = useState(74);
+
+    useEffect(() => {
+        const calcStability = async () => {
+            const logs = await getLogs();
+            const scores = logs.filter(l => l.type === 'pulse').map(l => l.data.score || 70);
+            if (scores.length > 0) {
+                const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+                setStabilityScore(Math.round(avg));
+            }
+        };
+        calcStability();
+    }, []);
+
     return (
         <div className="h-full flex flex-col">
             <Header title="Pulse Engine" subtitle="Neural Mapping" />
@@ -53,10 +70,10 @@ function PulseMain() {
                     <div className="absolute inset-0 bg-pulse-cyan/5 rounded-full blur-3xl group-hover:bg-pulse-cyan/10 transition-colors"></div>
                     <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
                         <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/5" />
-                        <motion.circle initial={{ pathLength: 0 }} animate={{ pathLength: 0.74 }} transition={{ duration: 1.5, ease: "easeOut" }} cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="4" className="text-pulse-cyan" strokeLinecap="round" strokeDasharray="283" />
+                        <motion.circle initial={{ pathLength: 0 }} animate={{ pathLength: stabilityScore / 100 }} transition={{ duration: 1.5, ease: "easeOut" }} cx="50" cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="4" className="text-pulse-cyan" strokeLinecap="round" strokeDasharray="283" />
                     </svg>
                     <div className="flex flex-col items-center text-center z-10 transition-transform group-active:scale-95">
-                        <span className="text-6xl font-display font-black text-pulse-cyan">74</span>
+                        <span className="text-6xl font-display font-black text-pulse-cyan">{stabilityScore}</span>
                         <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500">Stability Index</span>
                     </div>
                 </div>
@@ -71,6 +88,46 @@ function PulseMain() {
                         <span className="text-[10px] uppercase font-bold tracking-[0.2em]">Insights</span>
                     </button>
                 </div>
+
+                {/* Neural Suggestions Section */}
+                <NeuralSuggestions />
+            </div>
+        </div>
+    );
+}
+
+function NeuralSuggestions() {
+    const [, setLocation] = useLocation();
+    const [suggestions, setSuggestions] = useState<Recommendation[]>([]);
+
+    useEffect(() => {
+        getLocalRecommendations().then(setSuggestions);
+    }, []);
+
+    if (suggestions.length === 0) return null;
+
+    return (
+        <div className="w-full mt-12 space-y-4">
+            <div className="flex items-center gap-2 px-2">
+                <Sparkles size={14} className="text-pulse-cyan" />
+                <span className="text-[10px] uppercase font-black tracking-[0.3em] text-slate-700">Neural Suggestions</span>
+            </div>
+            <div className="space-y-3">
+                {suggestions.slice(0, 2).map((s) => (
+                    <button
+                        key={s.id}
+                        onClick={() => setLocation(s.targetPath)}
+                        className="w-full p-5 glass-panel border-pulse-cyan/10 flex items-center gap-4 text-left group hover:border-pulse-cyan/30 transition-all active:scale-[0.98]"
+                    >
+                        <div className={`p-3 rounded-lg ${s.type === 'pulse' ? 'bg-pulse-cyan/10 text-pulse-cyan' : s.type === 'mind' ? 'bg-pulse-pink/10 text-pulse-pink' : 'bg-pulse-purple/10 text-pulse-purple'}`}>
+                            <Zap size={18} />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-xs font-black uppercase tracking-tight text-white group-hover:text-pulse-cyan transition-colors">{s.title}</h4>
+                            <p className="text-[10px] text-slate-500 uppercase leading-relaxed mt-1 line-clamp-1">{s.desc}</p>
+                        </div>
+                    </button>
+                ))}
             </div>
         </div>
     );
@@ -128,7 +185,25 @@ function PulseJournal({ data, onUpdate }: { data: any, onUpdate: (d: any) => voi
                 className="flex-1 bg-transparent border-0 text-3xl font-arabic outline-none placeholder:text-on-surface/10 resize-none"
                 placeholder="عبر هنا..."
             />
-            <button onClick={() => setLocation("/pulse")} className="py-6 bg-pulse-purple text-white font-black uppercase tracking-widest text-sm shadow-[0_0_40px_rgba(155,93,229,0.2)] mt-6 transition-standard active-scale">Secure Log Complete</button>
+            <button
+                onClick={async () => {
+                    await saveLog({
+                        id: crypto.randomUUID(),
+                        type: 'pulse',
+                        timestamp: Date.now(),
+                        data: {
+                            score: 80, // Default for now, can be slider-based
+                            tags: data.tags,
+                            note: data.note,
+                            summary: data.tags.join(", ")
+                        }
+                    });
+                    setLocation("/pulse");
+                }}
+                className="py-6 bg-pulse-purple text-white font-black uppercase tracking-widest text-sm shadow-[0_0_40px_rgba(155,93,229,0.25)] mt-6 transition-standard active-scale"
+            >
+                Secure Log Complete
+            </button>
         </div>
     );
 }

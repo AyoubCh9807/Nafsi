@@ -144,3 +144,19 @@ export const message = sqliteTable("message", {
 }, (table) => [
     index("idx_message_room").on(table.roomId, table.createdAt),
 ]);
+
+// ─── MODERATION REPORTS ───────────────────────────────
+// Flagging harmful content anonymously.
+
+export const report = sqliteTable("report", {
+    id: text("id").primaryKey(),
+    reportedById: text("reported_by_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    targetId: text("target_id").notNull(),           // roomId or messageId
+    targetType: text("target_type").notNull(),       // "room", "message"
+    reason: text("reason").notNull(),
+    status: text("status").notNull().default("pending"), // "pending", "reviewed", "dismissed", "actioned"
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+}, (table) => [
+    index("idx_report_target").on(table.targetId),
+    index("idx_report_status").on(table.status),
+]);

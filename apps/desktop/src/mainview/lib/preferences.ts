@@ -55,3 +55,22 @@ export const saveSecurePreferences = async (settings: Partial<AppSettings>) => {
         console.error("Vault encryption failed", e);
     }
 };
+
+export const exportVaultAsBlob = async () => {
+    const encrypted = localStorage.getItem(STORAGE_KEY);
+    return encrypted;
+};
+
+export const importVaultFromBlob = async (blob: string) => {
+    try {
+        // Verify it decrypts before saving
+        const decrypted = await decryptData(blob);
+        if (decrypted) {
+            localStorage.setItem(STORAGE_KEY, blob);
+            return true;
+        }
+    } catch (e) {
+        console.error("Invalid vault pulse detected.");
+    }
+    return false;
+};

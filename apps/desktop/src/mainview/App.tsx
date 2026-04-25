@@ -18,6 +18,7 @@ import { NavItem } from "./components/layout/NavItem";
 
 // --- FEATURES ---
 import { OnboardingFlow } from "./features/onboarding/OnboardingFlow";
+import { WaitlistLanding } from "./features/onboarding/WaitlistLanding";
 import { PulseModule } from "./features/pulse/PulseModule";
 import { ChatModule } from "./features/chat/ChatModule";
 import { MindModule } from "./features/mind/MindModule";
@@ -29,17 +30,20 @@ import { PremiumModule } from "./features/premium/PremiumModule";
 import { AuthModule } from "./features/auth/AuthModule";
 import { loadSecurePreferences, saveSecurePreferences, DEFAULT_SETTINGS } from "./lib/preferences";
 import { authClient } from "./lib/auth-client";
+import { NotificationManager } from "./lib/notifications";
 
 export default function App() {
   const [isAppReady, setIsAppReady] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState<boolean>(DEFAULT_SETTINGS.hasOnboarded);
   const [userData, setUserData] = useState<AppState['userData']>(DEFAULT_SETTINGS.userData);
-  const [isDecoyMode, setIsDecoyMode] = useState<boolean>(() => {
+  const [isDecoyMode] = useState<boolean>(() => {
     return sessionStorage.getItem("nafsi_decoy_active") === "true";
   });
 
   const { data: session, isPending } = authClient.useSession();
   const [location, setLocation] = useLocation();
+
+  const isWebBrowser = !((window as any).process || (window as any).__ELECTROBUN__);
 
   // Initialization: Load Encrypted Vault
   useEffect(() => {
@@ -48,6 +52,11 @@ export default function App() {
       setHasOnboarded(isDecoyMode ? true : prefs.hasOnboarded);
       setUserData(prefs.userData);
       setIsAppReady(true);
+
+      // Initialize Notifications
+      if (prefs.hasOnboarded) {
+        NotificationManager.schedulePulseReminders();
+      }
     }
     initVault();
   }, [isDecoyMode]);
@@ -100,8 +109,13 @@ export default function App() {
     );
   }
 
+  // Web Deployment Guard: If on browser, force to waitlist unless authenticated (for preview)
+  if (isWebBrowser && !session && location !== "/waitlist") {
+    return <Redirect to="/waitlist" />;
+  }
+
   // Identity Guard: Redirect to gateway if unauthorized and not on an auth route
-  if (!session && !isAuthRoute) {
+  if (!session && !isAuthRoute && location !== "/waitlist") {
     return <Redirect to="/login" />;
   }
 
@@ -159,6 +173,7 @@ export default function App() {
                 <MeModule state={{ hasOnboarded, userData, isDecoyMode, module: 'me' } as any} setState={handleSetState} />
               </Route>
               <Route path="/premium*"><PremiumModule /></Route>
+              <Route path="/waitlist"><WaitlistLanding /></Route>
               <Route path="/login*"><AuthModule /></Route>
               <Route path="/register*"><AuthModule /></Route>
               <Route path="/recovery*"><AuthModule /></Route>

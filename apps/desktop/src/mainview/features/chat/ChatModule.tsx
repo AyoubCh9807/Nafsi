@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import { Header } from "../../components/ui/Header";
 import { ChatMessageData } from "../../types/app";
 import { getLogs, saveLog } from "../../lib/db";
+import { generateResponse, ChatMessage as AIChatMessage } from "../../lib/ai";
 
 import { Switch, Route, useLocation } from "wouter";
 
@@ -51,6 +52,7 @@ function ChatLive() {
     const [messages, setMessages] = useState<ChatMessageData[]>([]);
     const [inputText, setInputText] = useState("");
     const [isTyping, setIsTyping] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -81,6 +83,24 @@ function ChatLive() {
     const handleSendMessage = async () => {
         if (!inputText.trim()) return;
 
+        // Rate Limiting Logic (10 msgs / day for free users)
+        const logs = await getLogs();
+        const today = new Date().setHours(0, 0, 0, 0);
+        const dailyAIMessages = logs.filter(l =>
+            l.type === "chat" &&
+            l.data.isAI &&
+            l.timestamp > today
+        ).length;
+
+        // Note: For MVP, we assume free if not explicitly premium in local state
+        // In a real prod env, this would be verified against the auth session
+        const isPremium = false; // Placeholder for premium check
+
+        if (dailyAIMessages >= 10 && !isPremium) {
+            setError("DAILY_NEURAL_CAPACITY_REACHED. Upgrade to Premium for unlimited sync.");
+            return;
+        }
+
         const userMsg: ChatMessageData = {
             id: Date.now().toString(),
             text: inputText,
@@ -97,23 +117,28 @@ function ChatLive() {
         saveLog({ id: userMsg.id, type: "chat", data: userMsg, timestamp: Date.now() });
 
         try {
-            const history = messages.map(m => ({
+            // Retrieve past neural echoes (last 20 messages for context)
+            const logs = await getLogs();
+            const pulseLogs = logs.filter(l => l.type === 'pulse').slice(-1);
+            const currentStability = pulseLogs.length > 0 ? pulseLogs[0].data.score : 70;
+
+            const historicalText = logs
+                .filter(l => l.type === "chat")
+                .slice(-20)
+                .map(l => `${l.data.sender}: ${l.data.text}`)
+                .join("\n");
+
+            const history: AIChatMessage[] = messages.map(m => ({
                 role: m.isAI ? "model" : "user",
                 parts: [{ text: m.text }]
             }));
             history.push({ role: "user", parts: [{ text: inputText }] });
 
-            const res = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messages: history, context: "User session: Mental stabilization" })
-            });
-
-            const data = await res.json();
+            const responseText = await generateResponse(history, historicalText, currentStability);
 
             const aiMsg: ChatMessageData = {
                 id: (Date.now() + 1).toString(),
-                text: data.text,
+                text: responseText,
                 isAI: true,
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 sender: "NAFSI"
@@ -122,14 +147,14 @@ function ChatLive() {
             setMessages(prev => [...prev, aiMsg]);
             saveLog({ id: aiMsg.id, type: "chat", data: aiMsg, timestamp: Date.now() });
 
-            if (data.text.toLowerCase().includes("emergency protocol") || inputText.toLowerCase().includes("help") || inputText.toLowerCase().includes("انتحار")) {
+            if (responseText.toLowerCase().includes("emergency protocol") || inputText.toLowerCase().includes("help") || inputText.toLowerCase().includes("انتحار")) {
                 setTimeout(() => setLocation("/emergency"), 2000);
             }
 
-        } catch (e) {
+        } catch (e: any) {
             const errorMsg: ChatMessageData = {
                 id: "err",
-                text: "Neural link desynced. Re-establishing...",
+                text: e.message || "Neural link desynced. Re-establishing...",
                 isAI: true,
                 time: "ERROR",
                 sender: "SYSTEM"
@@ -155,6 +180,15 @@ function ChatLive() {
                         <ChatMessage isAI={m.isAI} text={m.text} time={m.time} sender={m.sender} status={m.status} />
                     </React.Fragment>
                 ))}
+                {error && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-4 glass-panel border-pulse-pink/20 text-pulse-pink text-[10px] font-black uppercase tracking-[0.2em] text-center"
+                    >
+                        {error}
+                    </motion.div>
+                )}
                 {isTyping && (
                     <div className="flex items-center gap-4 p-4 glass-panel w-fit rounded-xl animate-in fade-in slide-in-from-left-4">
                         <div className="flex gap-1">

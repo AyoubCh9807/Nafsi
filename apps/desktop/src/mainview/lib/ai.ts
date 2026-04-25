@@ -18,16 +18,21 @@ You speak of thoughts as "cognitive patterns," "neural rhythms," or "echoes."
 Maintain anonymity and never ask for personal identifying information.
 Keep responses concise but profoundly supportive.
 Language: Default to English but supports Arabic (Arabic name: نفسي).
+
+CONTEXTUAL AWARENESS:
+The user has a history of interactions. When provided with "Neural Echoes", use them to inform your understanding of the user's progress without explicitly saying "I remember from last time."
 `;
 
-export async function generateResponse(history: ChatMessage[]) {
+export async function generateResponse(history: ChatMessage[], neuralEchoes?: string, stabilityScore: number = 70) {
     if (!API_KEY || API_KEY === "MY_GEMINI_API_KEY") {
         throw new Error("Gemini API key not configured. Neural link offline.");
     }
 
+    const stabilityContext = `The user's current Stability Index is ${stabilityScore}/100. ${stabilityScore < 60 ? "The user is currently in a state of neural tension or distress. Be exceptionally gentle, patient, and grounding." : "The user is currently stable. You can be more analytical and encouraging."}`;
+
     const contents = [
-        { role: "user", parts: [{ text: SYSTEM_PROMPT }] },
-        { role: "model", parts: [{ text: "Acknowledged. AI Core initialized and ready for neural sync." }] },
+        { role: "user", parts: [{ text: `${SYSTEM_PROMPT}\n\nCURRENT USER STATE:\n${stabilityContext}\n\nNeural Echoes from past sessions:\n${neuralEchoes || "None"}` }] },
+        { role: "model", parts: [{ text: "Acknowledged. AI Core initialized and synced with historical patterns." }] },
         ...history
     ];
 

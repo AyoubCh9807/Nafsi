@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   ChevronLeft,
   Plus,
-  Send
+  Send,
+  Flag
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Header } from "../../components/ui/Header";
@@ -94,14 +95,111 @@ function ConnectMain({ isDecoyMode }: { isDecoyMode?: boolean }) {
   );
 }
 
+
+import { encryptData, decryptData } from "../../lib/crypto";
+import { authClient } from "../../lib/auth-client";
+
 function ConnectRoom({ isDecoyMode }: { isDecoyMode?: boolean }) {
   const [location, setLocation] = useLocation();
   const base = location.startsWith("/nexus") ? "/nexus" : "/connect";
+  const { data: session } = authClient.useSession();
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const roomId = searchParams.get("id");
+
+  const [messages, setMessages] = useState<any[]>([]);
+  const [inputText, setInputText] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMessages = async () => {
+    if (!roomId) return;
+    try {
+      const response = await fetch(`${import.meta.env.VITE_AUTH_URL}/api/nexus/rooms/${roomId}/messages`);
+      if (response.ok) {
+        const rawMessages = await response.json();
+
+        // Decrypt messages
+        const decryptedMessages = await Promise.all(rawMessages.map(async (msg: any) => {
+          const decrypted = await decryptData(msg.content, roomId);
+          return {
+            ...msg,
+            content: decrypted || "[Decryption Failed]"
+          };
+        }));
+
+        setMessages(decryptedMessages);
+      }
+    } catch (e) {
+      console.error("Failed to fetch messages", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!roomId) return;
+
+    // Initial fetch
+    fetchMessages();
+
+    // Setup SSE Stream for real-time updates
+    const eventSource = new EventSource(`${import.meta.env.VITE_AUTH_URL}/api/nexus/rooms/${roomId}/stream`, {
+      withCredentials: true
+    });
+
+    eventSource.addEventListener("sync", async (event) => {
+      const rawMessages = JSON.parse(event.data);
+      const decryptedMessages = await Promise.all(rawMessages.map(async (msg: any) => {
+        const decrypted = await decryptData(msg.content, roomId);
+        return {
+          ...msg,
+          content: decrypted || "[Decryption Failed]"
+        };
+      }));
+      setMessages(decryptedMessages);
+      setLoading(false);
+    });
+
+    eventSource.onerror = (e) => {
+      console.error("SSE Connection Failed", e);
+      // Fallback to polling if SSE fails
+      const interval = setInterval(fetchMessages, 5000);
+      return () => clearInterval(interval);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [roomId]);
+
+  const handleSendMessage = async () => {
+    if (!inputText.trim() || !roomId || isSending || !session) return;
+    setIsSending(true);
+    try {
+      const encrypted = await encryptData(inputText, roomId);
+      const response = await fetch(`${import.meta.env.VITE_AUTH_URL}/api/nexus/rooms/${roomId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: encrypted, type: "text" })
+      });
+
+      if (response.ok) {
+        setInputText("");
+        fetchMessages();
+      }
+    } catch (e) {
+      console.error("Failed to send message", e);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col relative bg-[#050508]">
       <Header
         title={isDecoyMode ? "Discussion Room" : "ANONYMOUS_VOID"}
-        subtitle={isDecoyMode ? "Shared Space" : "12 PEERS SYNCED"}
+        subtitle={isDecoyMode ? "Shared Space" : `${messages.length} SYNCED LOGS`}
         leftIcon={<ChevronLeft />}
         onLeftClick={() => setLocation(base)}
       />
@@ -111,17 +209,55 @@ function ConnectRoom({ isDecoyMode }: { isDecoyMode?: boolean }) {
             {isDecoyMode ? "Open Discussion Channel" : "Encrypted P2P Nexus Protocol Active"}
           </span>
         </div>
-        <RoomMessage user={isDecoyMode ? "user_4" : "GHOST_44"} text={isDecoyMode ? "I love the new design of this discussion board." : "Today was the hardest day in a while, but I'm trying to stay present."} />
-        <RoomMessage user={isDecoyMode ? "mod_alpha" : "VOID_USER"} text={isDecoyMode ? "Glad you like it! We are adding more features soon." : "We see you. Remember the 5-4-3-2-1 protocol if the tension peaks."} />
-        <RoomMessage user="YOU" text={isDecoyMode ? "Does anyone know how to change the theme?" : "Is anyone else finding the evening sessions helpful?"} isOwn />
+
+        {loading ? (
+          [...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-3/4" />)
+        ) : messages.length === 0 ? (
+          <div className="text-center py-20 opacity-20">
+            <p className="text-[10px] uppercase font-black tracking-widest">No neural activity detected</p>
+          </div>
+        ) : (
+          messages.map((msg) => (
+            <RoomMessage
+              key={msg.id}
+              user={isDecoyMode ? `user_${msg.userId.slice(0, 4)}` : `GHOST_${msg.userId.slice(0, 4)}`}
+              text={msg.content}
+              isOwn={session?.user?.id === msg.userId}
+              onReport={async () => {
+                if (confirm("Report this message for moderation?")) {
+                  await fetch(`${import.meta.env.VITE_AUTH_URL}/api/nexus/report`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ targetId: msg.id, targetType: "message", reason: "Violates community guidelines" })
+                  });
+                  alert("Reported. Neural nodes are analyzing.");
+                }
+              }}
+            />
+          ))
+        )}
       </div>
-      <div className="p-6 pb-24 flex items-center gap-4">
-        <input className="flex-1 bg-surface-low border-b border-white/5 px-0 py-4 font-arabic text-on-surface focus:outline-none focus:border-pulse-cyan" placeholder="Transmit thought..." />
-        <button className="p-3 bg-pulse-cyan text-void rounded-lg"><Send size={20} /></button>
+      <div className="p-6 pb-24 flex items-center gap-4 bg-void/50 backdrop-blur-md">
+        <input
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+          className="flex-1 bg-surface-low border-b border-white/5 px-4 py-4 font-arabic text-on-surface focus:outline-none focus:border-pulse-cyan transition-all"
+          placeholder={isSending ? "Syncing..." : "Transmit thought..."}
+          disabled={isSending}
+        />
+        <button
+          onClick={handleSendMessage}
+          disabled={isSending || !inputText.trim()}
+          className="p-3 bg-pulse-cyan text-void rounded-lg disabled:opacity-50 transition-all active:scale-95"
+        >
+          <Send size={20} />
+        </button>
       </div>
     </div>
   );
 }
+
 
 function ConnectCreate({ isDecoyMode }: { isDecoyMode?: boolean }) {
   const [location, setLocation] = useLocation();
@@ -216,10 +352,20 @@ function ConnectCreate({ isDecoyMode }: { isDecoyMode?: boolean }) {
   );
 }
 
-function RoomMessage({ user, text, isOwn }: { user: string, text: string, isOwn?: boolean }) {
+function RoomMessage({ user, text, isOwn, onReport }: { user: string, text: string, isOwn?: boolean, onReport?: () => void }) {
   return (
-    <div className={`flex flex-col gap-1 max-w-[80%] ${isOwn ? 'ml-auto items-end' : 'items-start'}`}>
-      <span className="text-[10px] font-mono tracking-widest text-slate-700 font-bold uppercase">{user}</span>
+    <div className={`group flex flex-col gap-1 max-w-[80%] ${isOwn ? 'ml-auto items-end' : 'items-start'}`}>
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-mono tracking-widest text-slate-700 font-bold uppercase">{user}</span>
+        {!isOwn && (
+          <button
+            onClick={onReport}
+            className="opacity-0 group-hover:opacity-100 text-slate-700 hover:text-pulse-pink transition-all"
+          >
+            <Flag size={10} />
+          </button>
+        )}
+      </div>
       <div className={`p-4 rounded-xl border border-white/5 ${isOwn ? 'bg-pulse-cyan text-void font-bold shadow-[0_0_15px_rgba(0,245,212,0.2)]' : 'glass-panel text-slate-300'}`}>
         <p className="text-sm font-arabic leading-relaxed">{text}</p>
       </div>

@@ -63,7 +63,7 @@ function CBTLibrary() {
             <Header title="CBT Library" leftIcon={<ChevronLeft />} onLeftClick={() => setLocation("/mind")} />
             <div className="p-6 space-y-4">
                 {["Cognitive Distortions", "Thought Records", "Behavioral Activation", "Core Beliefs Shift", "Exposure Protocol"].map(t => (
-                    <div key={t} className="glass-panel p-6 flex justify-between items-center group hover:border-pulse-purple/30 cursor-pointer" onClick={() => setLocation("/mind/cbt_player")}>
+                    <div key={t} className="glass-panel p-6 flex justify-between items-center group hover:border-pulse-purple/30 cursor-pointer" onClick={() => setLocation(`/mind/cbt_player?type=${t}`)}>
                         <span className="font-display font-bold text-lg">{t}</span>
                         <ArrowRight className="text-slate-600 group-hover:text-pulse-purple" />
                     </div>
@@ -76,11 +76,26 @@ function CBTLibrary() {
 function CBTPlayer() {
     const [, setLocation] = useLocation();
     const [step, setStep] = React.useState(0);
-    const steps = [
-        { q: "What is the evidence that your catastrophic thought is actually true?", sub: "Write down 3 cold, hard facts." },
-        { q: "What is the evidence AGAINST this thought?", sub: "Look for alternative explanations." },
-        { q: "What would you tell a friend in this exact situation?", sub: "Be as compassionate as you would be to them." }
-    ];
+    const stepsByEx = {
+        "Cognitive Distortions": [
+            { q: "What is the evidence that your catastrophic thought is actually true?", sub: "Write down 3 cold, hard facts." },
+            { q: "What is the evidence AGAINST this thought?", sub: "Look for alternative explanations." },
+            { q: "What would you tell a friend in this exact situation?", sub: "Be as compassionate as you would be to them." }
+        ],
+        "Thought Records": [
+            { q: "What situation triggered this feeling?", sub: "Describe the event objectively." },
+            { q: "What was the single most distressing 'hot thought'?", sub: "Identify the core belief." },
+            { q: "Rate your emotional intensity (0-100)", sub: "Quantify the affect." }
+        ],
+        "Behavioral Activation": [
+            { q: "List 3 small activities that used to give you joy.", sub: "Simple things like walking or making tea." },
+            { q: "Which one can you do in the next 30 minutes?", sub: "Commitment to action." }
+        ]
+    };
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const type = (searchParams.get("type") || "Cognitive Distortions") as keyof typeof stepsByEx;
+    const steps = stepsByEx[type] || stepsByEx["Cognitive Distortions"];
 
     const next = () => {
         if (step < steps.length - 1) setStep(step + 1);
@@ -96,7 +111,7 @@ function CBTPlayer() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="text-center space-y-6"
             >
-                <h2 className="text-[10px] uppercase tracking-widest text-pulse-purple font-bold">CBT Sequence Active // STEP {step + 1}</h2>
+                <h2 className="text-[10px] uppercase tracking-widest text-pulse-purple font-bold">{type.toUpperCase()} // STEP {step + 1}</h2>
                 <h1 className="text-4xl font-display font-black tracking-tight leading-none uppercase">{steps[step].q}</h1>
                 <p className="text-slate-500 font-arabic text-xl leading-relaxed">
                     {steps[step].sub}

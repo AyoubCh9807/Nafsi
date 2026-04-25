@@ -18,6 +18,8 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { AppState } from "../../types/app";
 import { authClient } from "../../lib/auth-client";
 import { executeNuclearProtocol } from "../../lib/nuclear";
+import { exportVaultAsBlob, importVaultFromBlob } from "../../lib/preferences";
+import { PRIVACY_MANIFESTO, PRIVACY_POLICY, TERMS_OF_SERVICE } from "../../lib/legal";
 
 interface MeProps {
     state: AppState;
@@ -43,6 +45,9 @@ export function MeModule({ state, setState }: MeProps) {
             <Route path="/vault/data_mgmt"><DataManagementSettings onBack={() => window.history.back()} /></Route>
             <Route path="/me/about"><AboutSettings onBack={() => window.history.back()} /></Route>
             <Route path="/vault/about"><AboutSettings onBack={() => window.history.back()} /></Route>
+            <Route path="/me/manifesto"><LegalView title="Privacy Manifesto" content={PRIVACY_MANIFESTO} onBack={() => window.history.back()} /></Route>
+            <Route path="/me/tos"><LegalView title="Terms of Service" content={TERMS_OF_SERVICE} onBack={() => window.history.back()} /></Route>
+            <Route path="/me/privacy"><LegalView title="Privacy Protocol" content={PRIVACY_POLICY} onBack={() => window.history.back()} /></Route>
             <Route><Redirect to="/me" /></Route>
         </Switch>
     );
@@ -191,13 +196,13 @@ function SecuritySettings({ onBack }: { onBack: () => void }) {
             <div className="p-6 space-y-6">
                 <div className="glass-panel p-6 space-y-4">
                     <h3 className="text-xs font-black uppercase tracking-widest text-pulse-cyan">Encryption Layer</h3>
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center opacity-40 grayscale">
                         <div>
                             <p className="text-white font-bold">Biometric Unlock</p>
-                            <p className="text-[10px] text-slate-500 uppercase">Use Fingerprint or FaceID</p>
+                            <p className="text-[10px] text-slate-500 uppercase">Hardware Bridge Offline</p>
                         </div>
-                        <div className="w-12 h-6 bg-pulse-cyan rounded-full p-1 flex justify-end">
-                            <div className="w-4 h-4 bg-void rounded-full" />
+                        <div className="w-12 h-6 bg-surface-low rounded-full p-1 flex justify-start">
+                            <div className="w-4 h-4 bg-slate-600 rounded-full" />
                         </div>
                     </div>
                     <div className="flex justify-between items-center opacity-40">
@@ -269,10 +274,41 @@ function DataManagementSettings({ onBack }: { onBack: () => void }) {
         <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
             <Header title="Vault Control" leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
             <div className="p-6 space-y-4">
-                <button className="w-full p-6 glass-panel text-left flex items-center justify-between group hov:bg-white/5">
+                <button
+                    onClick={async () => {
+                        const blob = await exportVaultAsBlob();
+                        if (blob) {
+                            navigator.clipboard.writeText(blob);
+                            alert("Vault pulse copied to clipboard. Store it somewhere safe and encrypted.");
+                        }
+                    }}
+                    className="w-full p-6 glass-panel text-left flex items-center justify-between group hover:bg-white/5"
+                >
                     <div>
                         <span className="block text-xs font-bold text-white uppercase">Export Neural History</span>
-                        <span className="text-[10px] text-slate-500 uppercase">Download AES-256 JSON</span>
+                        <span className="text-[10px] text-slate-500 uppercase">Copy AES-256 Pulse Blob</span>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-800" />
+                </button>
+
+                <button
+                    onClick={async () => {
+                        const blob = prompt("Paste your Neural Pulse Blob:");
+                        if (blob) {
+                            const success = await importVaultFromBlob(blob);
+                            if (success) {
+                                alert("Success. Neural link established. Restarting...");
+                                window.location.reload();
+                            } else {
+                                alert("Sync failed. Invalid or corrupted blob.");
+                            }
+                        }
+                    }}
+                    className="w-full p-6 glass-panel text-left flex items-center justify-between group hover:bg-white/5"
+                >
+                    <div>
+                        <span className="block text-xs font-bold text-white uppercase">Import Neural Pulse</span>
+                        <span className="text-[10px] text-slate-500 uppercase">Link existing vault</span>
                     </div>
                     <ChevronRight size={18} className="text-slate-800" />
                 </button>
@@ -298,6 +334,7 @@ function DataManagementSettings({ onBack }: { onBack: () => void }) {
 }
 
 function AboutSettings({ onBack }: { onBack: () => void }) {
+    const [, setLocation] = useLocation();
     return (
         <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4 overflow-y-auto pb-24">
             <Header title="Sanctuary Info" leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
@@ -314,15 +351,35 @@ function AboutSettings({ onBack }: { onBack: () => void }) {
                         Nafsi represents a new paradigm in digital mental health. By combining local-first encryption with neural mapping, we provide a sovereign sanctuary for your mind.
                     </p>
                     <div className="h-px bg-white/5" />
-                    <div className="flex justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                    <button onClick={() => setLocation("/me/manifesto")} className="w-full flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-pulse-cyan transition-colors">
                         <span>Legal Manifesto</span>
                         <ChevronRight size={14} />
-                    </div>
-                    <div className="flex justify-between text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                    </button>
+                    <button onClick={() => setLocation("/me/privacy")} className="w-full flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-pulse-cyan transition-colors">
                         <span>Privacy Protocol</span>
                         <ChevronRight size={14} />
-                    </div>
+                    </button>
+                    <button onClick={() => setLocation("/me/tos")} className="w-full flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-pulse-cyan transition-colors">
+                        <span>Terms of Service</span>
+                        <ChevronRight size={14} />
+                    </button>
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function LegalView({ title, content, onBack }: { title: string, content: string, onBack: () => void }) {
+    return (
+        <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4 overflow-y-auto">
+            <Header title={title} leftIcon={<ChevronRight className="rotate-180" />} onLeftClick={onBack} />
+            <div className="p-8 prose prose-invert font-arabic">
+                <div className="whitespace-pre-wrap text-slate-400 leading-relaxed text-sm">
+                    {content}
+                </div>
+            </div>
+            <div className="p-8 pb-20">
+                <button onClick={onBack} className="w-full py-4 bg-surface-low text-slate-500 font-bold uppercase tracking-widest text-[10px]">Acknowledge Protocol</button>
             </div>
         </div>
     );

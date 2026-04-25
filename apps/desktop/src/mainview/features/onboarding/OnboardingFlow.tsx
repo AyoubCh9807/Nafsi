@@ -3,7 +3,6 @@ import {
     Globe,
     Calendar,
     ScanFace,
-    Fingerprint,
     VenetianMask,
     Cpu,
     Sparkles,
@@ -24,7 +23,6 @@ export function OnboardingFlow({ setState }: OnboardingProps) {
             <Route path="/onboarding/language" component={LanguageSetup} />
             <Route path="/onboarding/age" component={AgeVerification} />
             <Route path="/onboarding/identity" component={IdentityAssignment} />
-            <Route path="/onboarding/biometric" component={BiometricSetup} />
             <Route path="/onboarding/decoy" component={DecoyProtocol} />
             <Route path="/onboarding/keygen" component={EncryptionKeygen} />
             <Route path="/onboarding/complete">
@@ -85,34 +83,23 @@ function AgeVerification() {
 
 function IdentityAssignment() {
     const [, setLocation] = useLocation();
+    const [id] = React.useState(() => `NFS-${crypto.randomUUID().slice(0, 8).toUpperCase()}`);
+
     return (
         <OnboardingStep
             icon={<ScanFace size={40} className="text-pulse-pink" />}
             title="Anonymous Identity"
             desc="Your data is linked to a private key, not your identity. Here is your generated NeuroID."
-            onNext={() => setLocation("/onboarding/biometric")}
+            onNext={() => setLocation("/onboarding/decoy")}
         >
             <div className="p-8 glass-panel w-full text-center border-dashed border-pulse-pink/30">
                 <span className="text-xs font-mono text-slate-500 uppercase block mb-2">System Generated ID</span>
-                <span className="text-3xl font-display font-black text-pulse-pink tracking-widest">NEURAL_ID: 8821-X</span>
+                <span className="text-3xl font-display font-black text-pulse-pink tracking-widest">{id}</span>
             </div>
         </OnboardingStep>
     );
 }
 
-function BiometricSetup() {
-    const [, setLocation] = useLocation();
-    return (
-        <OnboardingStep
-            icon={<Fingerprint size={40} className="text-pulse-cyan" />}
-            title="Biometric Setup"
-            desc="Enable FaceID or TouchID for rapid, secure access to your sanctuary."
-            onNext={() => setLocation("/onboarding/decoy")}
-        >
-            <button className="p-10 rounded-full glass-panel border-pulse-cyan/20 animate-pulse"><Fingerprint size={60} className="text-pulse-cyan" /></button>
-        </OnboardingStep>
-    );
-}
 
 function DecoyProtocol() {
     const [, setLocation] = useLocation();

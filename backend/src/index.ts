@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { streamSSE } from "hono/streaming";
 import { cors } from "hono/cors";
 import { drizzle } from "drizzle-orm/d1";
 import { eq } from "drizzle-orm";
@@ -100,6 +101,56 @@ app.post("/api/nexus/rooms/:id/messages", async (c) => {
 
     await db.insert(schema.message).values(newMessage);
     return c.json(newMessage);
+});
+
+app.get("/api/nexus/rooms/:id/stream", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const roomId = c.req.param("id");
+    const db = drizzle(c.env.DB, { schema });
+
+    return streamSSE(c, async (stream) => {
+        let lastId = "";
+        while (true) {
+            const messages = await db.select()
+                .from(schema.message)
+                .where(eq(schema.message.roomId, roomId))
+                .orderBy(schema.message.createdAt);
+
+            const latest = messages[messages.length - 1];
+            if (latest && latest.id !== lastId) {
+                lastId = latest.id;
+                await stream.writeSSE({
+                    data: JSON.stringify(messages),
+                    event: "sync",
+                    id: String(Date.now()),
+                });
+            }
+            await stream.sleep(2000); // Poll every 2s on server, better than 4s on client
+        }
+    });
+});
+
+app.post("/api/nexus/report", async (c) => {
+    const session = await getSession(c);
+    if (!session) return c.json({ error: "Unauthorized" }, 401);
+
+    const { targetId, targetType, reason } = await c.req.json();
+    const db = drizzle(c.env.DB, { schema });
+
+    const newReport = {
+        id: crypto.randomUUID(),
+        reportedById: session.user.id,
+        targetId,
+        targetType,
+        reason,
+        status: "pending",
+        createdAt: new Date(),
+    };
+
+    await db.insert(schema.report).values(newReport);
+    return c.json({ success: true, reportId: newReport.id });
 });
 
 app.get("/health", (c) => {

@@ -1,11 +1,9 @@
 
+
 const ENCRYPTION_KEY_NAME = "nafsi_vault_key";
 
 /**
  * Generates or retrieves a stable encryption key for the local vault.
- * In a real prod app, this might be derived from a password using PBKDF2.
- * For now, we'll generate a cryptographically strong random key and store it in 
- * a way that isn't easily accessible to other scripts (e.g., IndexedDB or similar).
  */
 async function getEncryptionKey(): Promise<CryptoKey> {
     const existing = localStorage.getItem(ENCRYPTION_KEY_NAME);
@@ -31,8 +29,34 @@ async function getEncryptionKey(): Promise<CryptoKey> {
     return key;
 }
 
-export async function encryptData(data: string): Promise<string> {
-    const key = await getEncryptionKey();
+/**
+ * Derives a room-specific key from a roomID and the master key.
+ * This ensures the server can't read messages even if they have the roomID,
+ * and different rooms have different keys.
+ */
+async function getRoomKey(roomId: string): Promise<CryptoKey> {
+    const masterKey = await getEncryptionKey();
+    const masterRaw = await crypto.subtle.exportKey("raw", masterKey);
+
+    // Simple derivation for MVP: Hash(MasterKey + RoomID)
+    const encoder = new TextEncoder();
+    const data = new Uint8Array(masterRaw.byteLength + encoder.encode(roomId).byteLength);
+    data.set(new Uint8Array(masterRaw));
+    data.set(encoder.encode(roomId), masterRaw.byteLength);
+
+    const hash = await crypto.subtle.digest("SHA-256", data);
+
+    return await crypto.subtle.importKey(
+        "raw",
+        hash,
+        "AES-GCM",
+        true,
+        ["encrypt", "decrypt"]
+    );
+}
+
+export async function encryptData(data: string, roomId?: string): Promise<string> {
+    const key = roomId ? await getRoomKey(roomId) : await getEncryptionKey();
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(data);
 
@@ -50,9 +74,9 @@ export async function encryptData(data: string): Promise<string> {
     return btoa(String.fromCharCode(...combined));
 }
 
-export async function decryptData(encrypted: string): Promise<string | null> {
+export async function decryptData(encrypted: string, roomId?: string): Promise<string | null> {
     try {
-        const key = await getEncryptionKey();
+        const key = roomId ? await getRoomKey(roomId) : await getEncryptionKey();
         const combined = Uint8Array.from(atob(encrypted), c => c.charCodeAt(0));
 
         const iv = combined.slice(0, 12);
@@ -70,3 +94,4 @@ export async function decryptData(encrypted: string): Promise<string | null> {
         return null;
     }
 }
+

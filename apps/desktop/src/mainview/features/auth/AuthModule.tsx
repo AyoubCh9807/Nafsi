@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lock, Fingerprint, Zap, ArrowRight, UserPlus, LogIn, Mail } from "lucide-react";
+import { Zap, ArrowRight, UserPlus, LogIn, Mail } from "lucide-react";
 import { motion } from "framer-motion";
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { authClient } from "../../lib/auth-client";
@@ -102,9 +102,9 @@ function LoginScreen() {
                   });
                   setTimeout(() => setSafetyTaps(0), 2000);
                }}
-               className="w-14 h-14 glass-panel flex items-center justify-center text-pulse-cyan cursor-pointer active:scale-90 transition-transform"
+               className="w-20 h-20 glass-panel flex items-center justify-center p-3 cursor-pointer active:scale-90 transition-transform"
             >
-               <Lock size={28} />
+               <img src="/logo.png" alt="Nafsi Logo" className="w-full h-full object-contain" />
             </div>
             <h2 className="text-5xl font-display font-black tracking-tighter leading-none uppercase">RECONNECT</h2>
             <p className="text-on-surface-low font-arabic text-lg leading-relaxed">{safetyTaps > 0 ? "INITIATING_SAFE_SYNC..." : "أدخل بريدك الإلكتروني للوصول إلى بياناتك المشفرة."}</p>
@@ -232,8 +232,8 @@ function RecoveryScreen() {
    return (
       <div className="screen-container space-y-12">
          <div className="space-y-6">
-            <div className="w-14 h-14 glass-panel flex items-center justify-center text-pulse-pink">
-               <Zap size={28} className="rotate-180" />
+            <div className="w-20 h-20 glass-panel flex items-center justify-center p-3">
+               <img src="/logo.png" alt="Nafsi Logo" className="w-full h-full object-contain grayscale opacity-50" />
             </div>
             <h2 className="text-5xl font-display font-black tracking-tighter leading-none uppercase text-white">RECOVERY</h2>
             <p className="text-on-surface-low font-arabic text-lg leading-relaxed">استعد هويتك عبر البريد أو المفتاح الفيزيائي.</p>
@@ -370,8 +370,8 @@ function RegisterScreen() {
    return (
       <div className="screen-container space-y-10">
          <div className="space-y-6">
-            <div className="w-14 h-14 glass-panel flex items-center justify-center text-pulse-purple">
-               <Fingerprint size={28} />
+            <div className="w-20 h-20 glass-panel flex items-center justify-center p-3">
+               <img src="/logo.png" alt="Nafsi Logo" className="w-full h-full object-contain" />
             </div>
             <h2 className="text-5xl font-display font-black tracking-tighter leading-none uppercase">CONSTRUCT</h2>
             <p className="text-on-surface-low font-arabic text-lg leading-relaxed">أنشئ هوية رقمية جديدة للوصول إلى الملاذ.</p>
