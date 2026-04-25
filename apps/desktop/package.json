@@ -1,4 +1,7 @@
 {
+  "name": "desktop",
+  "version": "0.0.1",
+  "private": true,
   "type": "module",
   "devDependencies": {
     "@tanstack/router-cli": "^1.166.33",
