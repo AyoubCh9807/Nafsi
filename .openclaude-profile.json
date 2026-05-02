@@ -3,7 +3,7 @@
   "env": {
     "GEMINI_AUTH_MODE": "api-key",
     "GEMINI_MODEL": "gemini-3-flash-preview",
-    "GEMINI_API_KEY": "AIzaSyDu9G1LJluMk00YaVPxoUtj_vr09N9M2ys",
+    "GEMINI_API_KEY": "***",
     "GEMINI_BASE_URL": "https://generativelanguage.googleapis.com/v1beta/openai"
   },
   "createdAt": "2026-04-24T21:20:30.699Z"
